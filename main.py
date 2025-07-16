@@ -3,6 +3,7 @@ import os
 import json
 import tempfile
 import io
+from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
@@ -17,12 +18,13 @@ st.set_page_config(page_title="AI for U Controller", layout="wide")
 st.title("📁 AI for U Controller")
 
 # Load secrets
-drive_api_key = st.secrets["GDRIVE_API_KEY"]
+drive_config = json.loads(st.secrets["gdrive_service_account"])
 folder_id = st.secrets["GDRIVE_FOLDER_ID"]
 openai_api_key = st.secrets["OPENAI_API_KEY"]
 
-# Setup Google Drive API (public access via API Key)
-drive_service = build("drive", "v3", developerKey=drive_api_key)
+# Setup Google Drive API
+credentials = service_account.Credentials.from_service_account_info(drive_config)
+drive_service = build("drive", "v3", credentials=credentials)
 
 @st.cache_data(show_spinner=False)
 def list_drive_files(folder_id):
@@ -32,7 +34,8 @@ def list_drive_files(folder_id):
     ).execute()
     return results.get("files", [])
 
-@st.cache_resource(show_spinner=True)
+# 🔧 Nonaktifkan cache sementara untuk debugging
+# @st.cache_resource(show_spinner=True)
 def load_and_index_files(files):
     docs = []
     for file in files:
@@ -49,14 +52,20 @@ def load_and_index_files(files):
             tmp.write(fh.read())
             path = tmp.name
 
-        if suffix == ".pdf":
-            loader = PyPDFLoader(path)
-        elif suffix == ".docx":
-            loader = Docx2txtLoader(path)
-        else:
-            loader = TextLoader(path)
+        try:
+            if suffix == ".pdf":
+                loader = PyPDFLoader(path)
+            elif suffix == ".docx":
+                loader = Docx2txtLoader(path)
+            else:
+                loader = TextLoader(path)
+            docs.extend(loader.load())
+        except Exception as e:
+            st.error(f"Gagal memuat file: {file['name']}. Error: {e}")
 
-        docs.extend(loader.load())
+    if not docs:
+        st.warning("Tidak ada dokumen yang berhasil dimuat.")
+        return None
 
     splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
     chunks = splitter.split_documents(docs)
@@ -74,16 +83,7 @@ if selected_files:
     selected = [f for f in drive_files if f["name"] in selected_files]
     with st.spinner("📚 Memuat & mengindeks dokumen..."):
         vectorstore = load_and_index_files(selected)
-        qa_chain = RetrievalQA.from_chain_type(
-            llm=ChatOpenAI(temperature=0, openai_api_key=openai_api_key),
-            chain_type="stuff",
-            retriever=vectorstore.as_retriever()
-        )
-
-        query = st.text_input("💬 Ajukan pertanyaan ke dokumen:")
-        if query:
-            response = qa_chain.run(query)
-            st.markdown("### 🧠 Jawaban:")
-            st.write(response)
-else:
-    st.info("Pilih setidaknya satu file dari Google Drive untuk memulai.")
+        if vectorstore:
+            qa_chain = RetrievalQA.from_chain_type(
+                llm=ChatOpenAI(temperature=0, openai_api_key=openai_api_key),
+                chain
