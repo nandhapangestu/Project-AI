@@ -2,6 +2,6 @@ streamlit
 langchain
 openai
 google-auth
+google-api-python-client
 pypdf
 tiktoken
-
