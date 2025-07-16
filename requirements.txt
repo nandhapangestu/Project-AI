@@ -4,4 +4,4 @@ openai
 google-auth
 pypdf
 tiktoken
-add requirements.txt for deployment
+
