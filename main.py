@@ -1,6 +1,5 @@
 import streamlit as st
 import os
-import json
 import tempfile
 import io
 from google.oauth2 import service_account
@@ -17,8 +16,8 @@ from langchain_community.chat_models import ChatOpenAI
 st.set_page_config(page_title="AI for U Controller", layout="wide")
 st.title("📁 AI for U Controller")
 
-# Load secrets
-drive_config = json.loads(st.secrets["gdrive_service_account"])
+# Load secrets langsung (tanpa json.loads)
+drive_config = st.secrets["gdrive_service_account"]
 folder_id = st.secrets["GDRIVE_FOLDER_ID"]
 openai_api_key = st.secrets["OPENAI_API_KEY"]
 
