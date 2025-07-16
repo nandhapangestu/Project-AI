@@ -1,6 +1,3 @@
-txt
-Copy
-Edit
 streamlit
 openai
 langchain
