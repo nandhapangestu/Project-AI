@@ -1,8 +1,8 @@
 import streamlit as st
 import os
+import json
 import tempfile
 import io
-from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
@@ -16,14 +16,13 @@ from langchain_community.chat_models import ChatOpenAI
 st.set_page_config(page_title="AI for U Controller", layout="wide")
 st.title("📁 AI for U Controller")
 
-# Load secrets langsung (tanpa json.loads)
-drive_config = st.secrets["gdrive_service_account"]
+# Load secrets
+drive_api_key = st.secrets["GDRIVE_API_KEY"]
 folder_id = st.secrets["GDRIVE_FOLDER_ID"]
 openai_api_key = st.secrets["OPENAI_API_KEY"]
 
-# Setup Google Drive API
-credentials = service_account.Credentials.from_service_account_info(drive_config)
-drive_service = build("drive", "v3", credentials=credentials)
+# Setup Google Drive API (public access via API Key)
+drive_service = build("drive", "v3", developerKey=drive_api_key)
 
 @st.cache_data(show_spinner=False)
 def list_drive_files(folder_id):
