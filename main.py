@@ -1,100 +1,101 @@
-import os
-import json
 import streamlit as st
+import os
+import io
+import tempfile
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-from langchain.chat_models import ChatOpenAI
-from langchain.chains import RetrievalQA
-from langchain.vectorstores import FAISS
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.document_loaders import GoogleDriveLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from googleapiclient.http import MediaIoBaseDownload
 
-# ======================= CONFIGURATION ==========================
+from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader, TextLoader
+from langchain.text_splitter import CharacterTextSplitter
+from langchain_community.embeddings import OpenAIEmbeddings
+from langchain_community.vectorstores import FAISS
+from langchain.chains import RetrievalQA
+from langchain_community.chat_models import ChatOpenAI
+
+# Setup UI ChatGPT-like
 st.set_page_config(page_title="AI for U Controller", layout="wide")
 st.markdown("""
-    <style>
-        body {
-            background-color: #f0f2f6;
-        }
-        .block-container {
-            padding: 2rem 3rem;
-        }
-        .stTextInput>div>div>input {
-            font-size: 1.1rem;
-        }
-        .stChatMessage.user {
-            background-color: #e8f0fe;
-        }
-        .stChatMessage.assistant {
-            background-color: #f1f3f4;
-        }
-    </style>
+<style>
+    .chat-message { border-radius: 12px; padding: 10px; margin: 10px 0; line-height: 1.5; }
+    .chat-message.user { background-color: #dcf8c6; text-align: right; }
+    .chat-message.bot { background-color: #f1f0f0; text-align: left; }
+</style>
 """, unsafe_allow_html=True)
+st.title("🧠 AI for U Controller")
 
-st.markdown("""
-    <h1 style='font-family:Segoe UI; font-weight:600;'>📁 AI for U Controller</h1>
-""", unsafe_allow_html=True)
+# Load secrets
+drive_creds = st.secrets["gdrive_service_account"]
+folder_id = st.secrets["GDRIVE_FOLDER_ID"]
+openai_key = st.secrets["OPENAI_API_KEY"]
 
-# ======================= LOAD SECRETS ===========================
-SERVICE_ACCOUNT_JSON = st.secrets["gdrive_service_account"]
-FOLDER_ID = st.secrets["GDRIVE_FOLDER_ID"]
-OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
-os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
-
+# Setup Google Drive API
 credentials = service_account.Credentials.from_service_account_info(
-    SERVICE_ACCOUNT_JSON,
-    scopes=["https://www.googleapis.com/auth/drive"]
+    drive_creds, scopes=["https://www.googleapis.com/auth/drive"]
 )
+drive_service = build("drive", "v3", credentials=credentials)
 
-def load_documents(folder_id):
-    loader = GoogleDriveLoader(
-        folder_id=folder_id,
-        credentials=credentials,
-        file_types=["pdf", "docx", "pptx", "txt"],
-        recursive=True
-    )
-    return loader.load()
+@st.cache_data(show_spinner=False)
+def list_files(folder_id):
+    results = drive_service.files().list(
+        q=f"'{folder_id}' in parents and trashed = false",
+        fields="files(id, name, mimeType)"
+    ).execute()
+    return results.get("files", [])
 
-def load_and_index_files():
-    docs = load_documents(FOLDER_ID)
-    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-    split_docs = splitter.split_documents(docs)
-    embeddings = OpenAIEmbeddings()
-    vectordb = FAISS.from_documents(split_docs, embeddings)
-    return vectordb
+@st.cache_resource(show_spinner=True)
+def build_vectorstore(files):
+    docs = []
+    for f in files:
+        request = drive_service.files().get_media(fileId=f["id"])
+        fh = io.BytesIO()
+        downloader = MediaIoBaseDownload(fh, request)
+        done = False
+        while not done:
+            _, done = downloader.next_chunk()
+        fh.seek(0)
 
-# ======================= LOAD VECTORSTORE =======================
-@st.cache_resource
-def get_qa_chain():
-    vectordb = load_and_index_files()
-    retriever = vectordb.as_retriever()
-    qa = RetrievalQA.from_chain_type(llm=ChatOpenAI(), retriever=retriever)
-    return qa
+        suffix = ".pdf" if "pdf" in f["mimeType"] else ".docx" if "word" in f["mimeType"] else ".txt"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(fh.read())
+            path = tmp.name
 
-qa_chain = get_qa_chain()
+        loader = PyPDFLoader(path) if suffix == ".pdf" else Docx2txtLoader(path) if suffix == ".docx" else TextLoader(path)
+        docs.extend(loader.load())
 
-# ======================= UI LAYOUT ==============================
-with st.sidebar:
-    st.markdown("### Pilih file dari Google Drive:")
-    st.info("Semua file dalam folder Drive akan diindeks otomatis.")
+    splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+    chunks = splitter.split_documents(docs)
 
-if "messages" not in st.session_state:
-    st.session_state["messages"] = []
+    embeddings = OpenAIEmbeddings(openai_api_key=openai_key)
+    return FAISS.from_documents(chunks, embeddings)
 
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+# UI
+files = list_files(folder_id)
+filenames = [f["name"] for f in files]
+selected = st.multiselect("📂 Pilih file dari Google Drive:", filenames)
 
-prompt = st.chat_input("Ajukan pertanyaan berdasarkan dokumen Google Drive...")
+if selected:
+    selected_files = [f for f in files if f["name"] in selected]
+    with st.spinner("🔍 Memuat dan memproses dokumen..."):
+        vectorstore = build_vectorstore(selected_files)
+        qa_chain = RetrievalQA.from_chain_type(
+            llm=ChatOpenAI(openai_api_key=openai_key),
+            chain_type="stuff",
+            retriever=vectorstore.as_retriever()
+        )
 
-if prompt:
-    st.chat_message("user").markdown(prompt)
-    st.session_state.messages.append({"role": "user", "content": prompt})
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
 
-    try:
-        response = qa_chain.run(prompt)
-        st.chat_message("assistant").markdown(response)
-        st.session_state.messages.append({"role": "assistant", "content": response})
-    except Exception as e:
-        st.chat_message("assistant").markdown(f"**Terjadi error:** {str(e)}")
+    for msg in st.session_state.messages:
+        role = "user" if msg["role"] == "user" else "bot"
+        st.markdown(f'<div class="chat-message {role}">{msg["content"]}</div>', unsafe_allow_html=True)
+
+    if prompt := st.chat_input("💬 Tanyakan sesuatu..."):
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.spinner("✍️ Menjawab..."):
+            response = qa_chain.run(prompt)
+        st.session_state.messages.append({"role": "bot", "content": response})
+        st.markdown(f'<div class="chat-message bot">{response}</div>', unsafe_allow_html=True)
+else:
+    st.info("👈 Pilih file dari Google Drive untuk memulai.")
