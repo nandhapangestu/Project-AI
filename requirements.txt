@@ -1,8 +1,7 @@
 streamlit
-openai
-langchain
-langchain-community
-google-auth
 google-api-python-client
-pypdf
-tiktoken
+google-auth
+google-auth-oauthlib
+pandas
+requests
+beautifulsoup4
