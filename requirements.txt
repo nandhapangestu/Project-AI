@@ -1,7 +1,9 @@
+# === Core App & Interface ===
 streamlit
-streamlit-chat
 python-dotenv
 watchdog
+
+# === OpenAI + LLMs ===
 openai
 tiktoken
 langchain
@@ -10,12 +12,16 @@ langchain-openai
 langchain-core
 langchainhub
 langserve
+
+# === Vector Store & Embeddings ===
 faiss-cpu
 sentence-transformers
 chromadb
 scikit-learn
+
+# === File Parsing (PDF, Excel, Word, CSV, GDoc) ===
+pypdf  # ✅ Ganti dari PyPDF2 ke pypdf
 PyMuPDF
-pypdf
 pdfminer.six
 docx
 python-docx
@@ -23,11 +29,15 @@ openpyxl
 pandas
 xlrd
 csvkit
+
+# === Google Drive & Auth ===
 google-api-python-client
 google-auth
 google-auth-oauthlib
 google-cloud-storage
 google-cloud-core
+
+# === Web Search + Scraping ===
 requests
 httpx
 beautifulsoup4
@@ -36,16 +46,22 @@ duckduckgo-search
 serpapi
 newspaper3k
 urllib3
+
+# === Asynchronous Ops + Middleware ===
 aiohttp
 tenacity
 trio
 anyio
+
+# === Utilities + Tools ===
 numpy
 rich
 toolz
 pyyaml
 typer
 loguru
+
+# === Frontend/UI Experience ===
 markdown
 mdx
 plotly
@@ -54,6 +70,8 @@ altair
 streamlit-option-menu
 streamlit-extras
 streamlit-toggle-switch
+
+# === Developer Tools & Debugging ===
 pytest
 ipython
 ipdb
@@ -62,14 +80,20 @@ notebook
 black
 isort
 pre-commit
+
+# === Cache, Retry, Proxy Handling ===
 joblib
 cachetools
 backoff
 retrying
 frozendict
+
+# === Extra (Math & Rendering) ===
 sympy
 latex2mathml
 pyvis
 pydeck
+
+# === Optional (Image Handling if needed) ===
 Pillow
 opencv-python
