@@ -3,12 +3,10 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 import os
-import json
 from datetime import datetime
-import base64
 import requests
 from duckduckgo_search import DDGS
-from pypdf import PdfReader  # ✅ GANTI DARI PyPDF2 ke pypdf
+from PyPDF2 import PdfReader
 
 # Page Config
 st.set_page_config(page_title="AI for U Controller", layout="wide")
@@ -51,7 +49,7 @@ if uploaded_file:
     with open(uploaded_file.name, "wb") as f:
         f.write(uploaded_file.getbuffer())
 
-    gdrive_creds = json.loads(st.secrets["gdrive_service_account"])
+    gdrive_creds = st.secrets["gdrive_service_account"]
     credentials = service_account.Credentials.from_service_account_info(
         gdrive_creds,
         scopes=["https://www.googleapis.com/auth/drive"]
@@ -69,6 +67,7 @@ if uploaded_file:
         file_url = f"https://drive.google.com/file/d/{uploaded['id']}/view"
         os.remove(uploaded_file.name)
         st.success(f"File berhasil diupload ke GDrive: [Lihat File]({file_url})")
+
         # Extract text for chat
         reader = PdfReader(uploaded_file)
         content = "\n".join([page.extract_text() or "" for page in reader.pages])
