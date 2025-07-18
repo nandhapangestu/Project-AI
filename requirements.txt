@@ -1,7 +1,14 @@
 streamlit
-google-api-python-client
+openai
 google-auth
 google-auth-oauthlib
-pandas
+google-api-python-client
+PyMuPDF
+pypdf
+tiktoken
+bs4
 requests
-beautifulsoup4
+duckduckgo-search
+langchain
+pandas
+python-dotenv
