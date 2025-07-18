@@ -1,85 +1,119 @@
 import streamlit as st
-import json
-import os
-import pandas as pd
-import requests
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
+import requests
 from bs4 import BeautifulSoup
+import json
+import os
 
-# ========== PAGE CONFIG ==========
-st.set_page_config(page_title="AI for U Controller", page_icon="🧠", layout="wide")
+# ==============================
+# Konfigurasi Dasar
+# ==============================
+st.set_page_config(page_title="AI for U Controller", layout="wide")
 st.markdown("""
     <style>
-        .block-container {
-            padding: 2rem;
-        }
-        .stChatInput input {
-            border-radius: 20px;
-        }
+    .block-container {padding-top: 2rem;}
+    .stTextInput > div > div > input {border-radius: 10px; padding: 10px;}
+    .stButton>button {border-radius: 10px; background-color: #10a37f; color: white;}
     </style>
 """, unsafe_allow_html=True)
 
-# ========== HEADER ==========
-st.markdown("## 🧠 AI for U Controller")
+# ==============================
+# Sidebar (New Chat & Riwayat)
+# ==============================
+with st.sidebar:
+    st.header("\U0001F4D1 Obrolan")
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = []
+    if st.button("+ New Chat"):
+        st.session_state.chat_history = []
+    for i, (q, a) in enumerate(st.session_state.chat_history[::-1]):
+        st.markdown(f"**Q{i+1}:** {q}\n\n*A: {a}*")
+
+# ==============================
+# Upload GDrive kanan atas
+# ==============================
+uploaded_file = st.file_uploader("\U0001F4E5 Upload file ke GDrive Shared", type=None)
+if uploaded_file:
+    with open(uploaded_file.name, "wb") as f:
+        f.write(uploaded_file.getbuffer())
+
+    credentials = service_account.Credentials.from_service_account_info(
+        st.secrets["gdrive_service_account"],
+        scopes=["https://www.googleapis.com/auth/drive"]
+    )
+    drive_service = build("drive", "v3", credentials=credentials)
+    folder_id = st.secrets["gdrive_folder_id"]
+
+    media = MediaFileUpload(uploaded_file.name, resumable=True)
+    file_metadata = {"name": uploaded_file.name, "parents": [folder_id]}
+    drive_service.files().create(body=file_metadata, media_body=media, fields="id").execute()
+    os.remove(uploaded_file.name)
+    st.success("File berhasil diupload ke GDrive.")
+
+# ==============================
+# Kolom Chat Utama
+# ==============================
+st.title("\U0001F9E0 AI for U Controller")
 st.write("Silakan masukkan pertanyaan Anda:")
 
-# ========== LOAD SERVICE ACCOUNT ==========
-SERVICE_ACCOUNT_JSON = st.secrets["gdrive_service_account"]
-credentials = service_account.Credentials.from_service_account_info(
-    SERVICE_ACCOUNT_JSON,
-    scopes=["https://www.googleapis.com/auth/drive"]
-)
-drive_service = build("drive", "v3", credentials=credentials)
+question = st.text_input("", placeholder="Tanyakan sesuatu…")
 
-# ========== DEFINE DATA SOURCES ==========
-ICP_URL = "https://migas.esdm.go.id/post/harga-minyak-mentah"
-KURS_URL = "https://www.bi.go.id/id/statistik/informasi-kurs/transaksi-bi/default.aspx"
-GDRIVE_FOLDER_ID = "1hkN3DA67cpUKiQaR23BUXc3-k_mVb5wr"
-
-# ========== LOAD FILES FROM GDRIVE ==========
-def list_files_in_folder(service, folder_id):
-    results = service.files().list(q=f"'{folder_id}' in parents and trashed = false",
-                                   fields="files(id, name, mimeType)").execute()
-    return results.get("files", [])
-
+# Fungsi Web Scraping ICP
+@st.cache_data(show_spinner=False)
 def get_icp_info():
-    response = requests.get(ICP_URL)
-    soup = BeautifulSoup(response.content, "html.parser")
-    content = soup.find("div", class_="blog-post").text
-    return content.strip()
+    url = "https://migas.esdm.go.id/post/harga-minyak-mentah"
+    try:
+        res = requests.get(url, timeout=10)
+        soup = BeautifulSoup(res.text, "html.parser")
+        result = soup.find("div", class_="entry-content")
+        return result.text.strip()[:1000] if result else "Informasi ICP tidak ditemukan."
+    except:
+        return "Gagal mengambil data ICP dari website."
 
+# Fungsi Web Scraping Kurs BI
+@st.cache_data(show_spinner=False)
 def get_kurs_info():
-    response = requests.get(KURS_URL)
-    soup = BeautifulSoup(response.content, "html.parser")
-    kurs_table = soup.find("table")
-    return kurs_table.text if kurs_table else "Informasi kurs tidak ditemukan."
+    url = "https://www.bi.go.id/id/statistik/informasi-kurs/transaksi-bi/default.aspx"
+    try:
+        res = requests.get(url, timeout=10)
+        soup = BeautifulSoup(res.text, "html.parser")
+        table = soup.find("table")
+        return table.text.strip()[:1000] if table else "Data kurs tidak tersedia."
+    except:
+        return "Gagal mengambil data kurs dari website."
 
-def handle_query(query):
-    query = query.lower()
-    if "icp" in query or "harga minyak" in query:
+# Fungsi Jawaban Chat
+def jawab(question):
+    lower = question.lower()
+    if any(k in lower for k in ["harga minyak", "icp", "crude price"]):
         return get_icp_info()
-    elif "kurs" in query or "rupiah" in query:
+    elif any(k in lower for k in ["kurs", "exchange", "nilai tukar", "usd", "rupiah"]):
         return get_kurs_info()
-    elif "file" in query or "data" in query:
-        files = list_files_in_folder(drive_service, GDRIVE_FOLDER_ID)
-        if not files:
-            return "Tidak ditemukan file di Google Drive."
-        return "\n".join([f"- {f['name']}" for f in files])
+    elif any(k in lower for k in ["upload", "laporan", "drive"]):
+        return "Silakan upload dokumen via kanan atas. File akan disimpan di GDrive bersama."
     else:
         return "Mungkin saya bisa menambahkan informasi jika informasi tersebut dimasukan ke dalam cloud Gdrive dan Hubungi Admin Fungsi Controller (MRBC)."
 
-# ========== USER CHAT INTERFACE ==========
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+# Proses Pertanyaan
+if question:
+    answer = jawab(question)
+    st.session_state.chat_history.append((question, answer))
+    st.chat_message("user").markdown(question)
+    st.chat_message("assistant").markdown(answer)
 
-for msg in st.session_state.messages:
-    st.chat_message(msg["role"]).markdown(msg["content"])
-
-if user_input := st.chat_input("Tanyakan sesuatu..."):
-    st.session_state.messages.append({"role": "user", "content": user_input})
-    st.chat_message("user").markdown(user_input)
-
-    response = handle_query(user_input)
-    st.session_state.messages.append({"role": "assistant", "content": response})
-    st.chat_message("assistant").markdown(response)
+# ==============================
+# Contoh Pertanyaan (Glosari)
+# ==============================
+st.markdown("""
+<hr>
+<h4>Contoh pertanyaan:</h4>
+<ul>
+    <li>Berapa harga ICP bulan lalu?</li>
+    <li>Apa kurs USD hari ini?</li>
+    <li>Upload laporan PIS terbaru</li>
+    <li>Nilai tukar Rupiah sekarang?</li>
+    <li>ICP Maret 2024 berapa?</li>
+</ul>
+""", unsafe_allow_html=True)
