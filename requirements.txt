@@ -1,14 +1,14 @@
-# === Core App & Interface ===
+# === Core App & UI ===
 streamlit
 streamlit-chat
 python-dotenv
 watchdog
 
-# === OpenAI + LLMs ===
+# === OpenAI + LLM (Jika diperlukan) ===
 openai
 tiktoken
 
-# === File Parsing (PDF, Word, Excel, etc.) ===
+# === PDF & File Parsing ===
 PyPDF2
 PyMuPDF
 pypdf
@@ -19,12 +19,16 @@ pandas
 xlrd
 csvkit
 
-# === Google Drive & Auth ===
+# === Machine Learning for PDF QA ===
+scikit-learn
+numpy
+
+# === Google Drive Integration ===
 google-api-python-client
 google-auth
 google-auth-oauthlib
 
-# === Web Search ===
+# === Web Search + Scraping ===
 duckduckgo-search
 requests
 beautifulsoup4
@@ -32,14 +36,13 @@ lxml
 httpx
 urllib3
 
-# === Utilities & Asynchronous Support ===
-numpy
-toolz
+# === Logging, Retry, Utility ===
 loguru
+toolz
 tenacity
 aiohttp
 
-# === Developer & Debugging ===
+# === Developer Tools ===
 ipython
 jupyter
 black
