@@ -1,29 +1,18 @@
 # === Core App & Interface ===
 streamlit
+streamlit-chat
 python-dotenv
 watchdog
 
 # === OpenAI + LLMs ===
 openai
 tiktoken
-langchain
-langchain-community
-langchain-openai
-langchain-core
-langchainhub
-langserve
 
-# === Vector Store & Embeddings ===
-faiss-cpu
-sentence-transformers
-chromadb
-scikit-learn
-
-# === File Parsing (PDF, Excel, Word, CSV, GDoc) ===
-pypdf  # ✅ Ganti dari PyPDF2 ke pypdf
+# === File Parsing (PDF, Word, Excel, etc.) ===
+PyPDF2
 PyMuPDF
+pypdf
 pdfminer.six
-docx
 python-docx
 openpyxl
 pandas
@@ -34,66 +23,24 @@ csvkit
 google-api-python-client
 google-auth
 google-auth-oauthlib
-google-cloud-storage
-google-cloud-core
 
-# === Web Search + Scraping ===
+# === Web Search ===
+duckduckgo-search
 requests
-httpx
 beautifulsoup4
 lxml
-duckduckgo-search
-serpapi
-newspaper3k
+httpx
 urllib3
 
-# === Asynchronous Ops + Middleware ===
-aiohttp
-tenacity
-trio
-anyio
-
-# === Utilities + Tools ===
+# === Utilities & Asynchronous Support ===
 numpy
-rich
 toolz
-pyyaml
-typer
 loguru
+tenacity
+aiohttp
 
-# === Frontend/UI Experience ===
-markdown
-mdx
-plotly
-matplotlib
-altair
-streamlit-option-menu
-streamlit-extras
-streamlit-toggle-switch
-
-# === Developer Tools & Debugging ===
-pytest
+# === Developer & Debugging ===
 ipython
-ipdb
 jupyter
-notebook
 black
-isort
 pre-commit
-
-# === Cache, Retry, Proxy Handling ===
-joblib
-cachetools
-backoff
-retrying
-frozendict
-
-# === Extra (Math & Rendering) ===
-sympy
-latex2mathml
-pyvis
-pydeck
-
-# === Optional (Image Handling if needed) ===
-Pillow
-opencv-python

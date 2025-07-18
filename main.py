@@ -3,10 +3,13 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 import os
+import json
 from datetime import datetime
+import base64
 import requests
 from duckduckgo_search import DDGS
 from PyPDF2 import PdfReader
+import openai
 
 # Page Config
 st.set_page_config(page_title="AI for U Controller", layout="wide")
@@ -49,9 +52,9 @@ if uploaded_file:
     with open(uploaded_file.name, "wb") as f:
         f.write(uploaded_file.getbuffer())
 
-    gdrive_creds = st.secrets["gdrive_service_account"]
+    credentials_dict = st.secrets["gdrive_service_account"]
     credentials = service_account.Credentials.from_service_account_info(
-        gdrive_creds,
+        credentials_dict,
         scopes=["https://www.googleapis.com/auth/drive"]
     )
     drive_service = build("drive", "v3", credentials=credentials)
@@ -67,8 +70,6 @@ if uploaded_file:
         file_url = f"https://drive.google.com/file/d/{uploaded['id']}/view"
         os.remove(uploaded_file.name)
         st.success(f"File berhasil diupload ke GDrive: [Lihat File]({file_url})")
-
-        # Extract text for chat
         reader = PdfReader(uploaded_file)
         content = "\n".join([page.extract_text() or "" for page in reader.pages])
         st.session_state.last_uploaded_text = content
@@ -87,6 +88,18 @@ icp_keywords = ["harga minyak", "ICP", "crude price"]
 kurs_keywords = ["kurs", "rupiah", "exchange rate", "USD", "nilai tukar"]
 ucapan_keywords = ["halo", "hai", "hi"]
 
+openai.api_key = st.secrets["openai_api_key"]
+
+def ask_openai(prompt):
+    try:
+        completion = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return completion.choices[0].message.content
+    except Exception as e:
+        return f"Gagal mengambil jawaban dari OpenAI: {e}"
+
 if question:
     st.chat_message("user").markdown(question)
     if any(k in question.lower() for k in icp_keywords):
@@ -96,10 +109,9 @@ if question:
     elif any(k in question.lower() for k in ucapan_keywords):
         response = "Halo! Apakah ada yang bisa saya bantu?"
     elif "last_uploaded_text" in st.session_state and st.session_state.last_uploaded_text:
-        if question.lower() in st.session_state.last_uploaded_text.lower():
-            response = f"Ditemukan dalam dokumen: {question}"
-        else:
-            response = "Saya telah menerima dokumen, tapi tidak menemukan jawaban langsung. Mohon pastikan kata kunci tepat."
+        context = st.session_state.last_uploaded_text[:2000]  # limit context length
+        prompt = f"Berikut isi dokumen:\n{context}\n\nPertanyaan: {question}"
+        response = ask_openai(prompt)
     else:
         try:
             with DDGS() as ddgs:
@@ -107,7 +119,7 @@ if question:
                 if result:
                     response = result['body']
                 else:
-                    response = "Mungkin saya bisa menambahkan informasi jika informasi tersebut dimasukan ke dalam cloud Gdrive dan Hubungi Admin Fungsi Controller (MRBC)."
+                    response = ask_openai(question)
         except:
             response = "Maaf, terjadi kesalahan saat mencari informasi."
 
