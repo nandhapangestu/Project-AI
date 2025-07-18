@@ -12,3 +12,6 @@ duckduckgo-search
 langchain
 pandas
 python-dotenv
+beautifulsoup4
+lxml
+html5lib
