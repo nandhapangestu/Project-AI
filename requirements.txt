@@ -13,12 +13,14 @@ langchain-openai
 langchain-core
 langchainhub
 langserve
+pydantic
 
 # === Vector Store & Embeddings ===
 faiss-cpu
 sentence-transformers
 chromadb
 scikit-learn
+sentencepiece
 
 # === File Parsing (PDF, Excel, Word, CSV, GDoc) ===
 PyMuPDF
@@ -30,6 +32,7 @@ openpyxl
 pandas
 xlrd
 csvkit
+unstructured
 
 # === Google Drive & Auth ===
 google-api-python-client
@@ -47,6 +50,7 @@ duckduckgo-search
 serpapi
 newspaper3k
 urllib3
+html2text
 
 # === Asynchronous Ops + Middleware ===
 aiohttp
@@ -81,6 +85,7 @@ notebook
 black
 isort
 pre-commit
+dotenv-linter
 
 # === Cache, Retry, Proxy Handling ===
 joblib
