@@ -10,12 +10,11 @@ from sklearn.metrics.pairwise import cosine_similarity
 import openai
 import os
 
-# === CONFIG ===
+# === PAGE CONFIG ===
 st.set_page_config(page_title="AI for U Controller", layout="wide", initial_sidebar_state="expanded")
 openai.api_key = st.secrets["openai_api_key"]
 
 # === THEME CSS ===
-# Light & dark CSS string
 DARK_CSS = """
 <style>
 .stApp {background: #23272f !important; color: #e8e9ee;}
@@ -62,7 +61,7 @@ with st.sidebar:
         st.session_state.theme_mode = "light" if st.session_state.theme_mode == "dark" else "dark"
         st.experimental_rerun()
 
-    # Chat session
+    # Chat session/history logic
     if "chat_sessions" not in st.session_state:
         st.session_state.chat_sessions = []
     if "current_chat" not in st.session_state:
@@ -81,13 +80,13 @@ with st.sidebar:
     st.markdown("---")
     st.caption("🧠 **AI for U Controller**\n\nv1.0 | Mirip ChatGPT")
 
-# === SET CSS SESUAI TEMA ===
+# === APPLY CSS THEME ===
 if st.session_state.theme_mode == "dark":
     st.markdown(DARK_CSS, unsafe_allow_html=True)
 else:
     st.markdown(LIGHT_CSS, unsafe_allow_html=True)
 
-# === HEADER ===
+# === MAIN HEADER ===
 st.markdown("""
 <div style="display:flex;align-items:center;gap:13px;">
     <span style="font-size:2.5em;">🧠</span>
@@ -96,7 +95,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # === UPLOAD PDF ===
-uploaded_file = st.file_uploader("Upload file ke Drive Shared (PDF saja, max 200MB)", type=['pdf'], label_visibility="collapsed")
+uploaded_file = st.file_uploader(
+    "Upload file ke Drive Shared (PDF saja, max 200MB)", type=['pdf'], label_visibility="collapsed"
+)
 if uploaded_file:
     with open(uploaded_file.name, "wb") as f:
         f.write(uploaded_file.getbuffer())
@@ -141,7 +142,7 @@ if col4.button("Nilai tukar Rupiah sekarang?"):
     st.session_state["prompt_pre"] = "Nilai tukar Rupiah sekarang?"
     st.experimental_rerun()
 
-# === INPUT CHAT ===
+# === CHAT INPUT ===
 if "prompt_pre" in st.session_state:
     question = st.session_state.pop("prompt_pre")
 else:
@@ -149,7 +150,10 @@ else:
 
 if question:
     now = datetime.now().strftime("%H:%M")
-    st.chat_message("user", avatar="👤").markdown(f"{question}\n<div style='font-size:11px;color:#888;text-align:right'>{now}</div>", unsafe_allow_html=True)
+    st.chat_message("user", avatar="👤").markdown(
+        f"{question}\n<div style='font-size:11px;color:#888;text-align:right'>{now}</div>", 
+        unsafe_allow_html=True
+    )
     answer = None
 
     # === 1. PDF Search (TF-IDF)
@@ -161,7 +165,7 @@ if question:
             best_idx = sims.argmax()
             if sims[best_idx] > 0.11:
                 answer = chunks[best_idx]
-        except:
+        except Exception as e:
             pass
 
     # === 2. Web Search Fallback
@@ -171,7 +175,7 @@ if question:
                 result = next(ddgs.text(question), None)
                 if result:
                     answer = result['body']
-        except:
+        except Exception as e:
             pass
 
     # === 3. Fallback ke OpenAI
@@ -182,10 +186,13 @@ if question:
                 messages=[{"role": "user", "content": question}]
             )
             answer = completion.choices[0].message.content
-        except:
+        except Exception as e:
             answer = "❌ Maaf, terjadi kesalahan saat mencari informasi."
 
-    st.chat_message("assistant", avatar="🤖").markdown(f"{answer}\n<div style='font-size:11px;color:#bbb;text-align:right'>{now}</div>", unsafe_allow_html=True)
+    st.chat_message("assistant", avatar="🤖").markdown(
+        f"{answer}\n<div style='font-size:11px;color:#bbb;text-align:right'>{now}</div>", 
+        unsafe_allow_html=True
+    )
     st.session_state.current_chat.append((question, "", now, "user"))
     st.session_state.current_chat.append(("", answer, now, "assistant"))
-    st.experimental_rerun()
+    # TIDAK PERLU st.experimental_rerun() DI SINI!
