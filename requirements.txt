@@ -1,10 +1,8 @@
 # === Core App & UI ===
-streamlit
+streamlit>=1.32
 streamlit-chat
-python-dotenv
-watchdog
 
-# === OpenAI + LLM (Jika diperlukan) ===
+# === OpenAI + LLM ===
 openai
 tiktoken
 
