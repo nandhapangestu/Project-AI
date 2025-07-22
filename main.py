@@ -1,137 +1,156 @@
 import streamlit as st
+from datetime import datetime
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
-import os
-import json
-from datetime import datetime
-import base64
-import requests
-from duckduckgo_search import DDGS
 from PyPDF2 import PdfReader
+from duckduckgo_search import DDGS
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 import openai
+import os
 
-# Page Config
-st.set_page_config(page_title="AI for U Controller", layout="wide")
+# === CONFIG & THEME ===
+st.set_page_config(page_title="AI for U Controller", layout="wide", initial_sidebar_state="expanded")
+openai.api_key = st.secrets["openai_api_key"]
 
-# UI Styling
+# Dark theme (comment if want light)
 st.markdown("""
-    <style>
-    .block-container {padding-top: 1.5rem;}
-    .stTextInput input {border-radius: 10px; padding: 10px;}
-    .stButton>button {border-radius: 10px; background-color: #10a37f; color: white;}
-    .css-1544g2n {padding-top: 1rem;}
-    .example-button {display:inline-block;margin:0 8px 8px 0;padding:8px 16px;background:#efefef;border-radius:8px;cursor:pointer;}
-    </style>
+<style>
+.stApp {background: #23272f !important; color: #e8e9ee;}
+[data-testid="stSidebar"] > div:first-child {background: #17181c;}
+.st-emotion-cache-13ln4jf, .css-1544g2n {background: #23272f !important;}
+.stChatMessage {padding: 0.7em 1em; border-radius: 1.5em; margin-bottom: 0.8em;}
+.stChatMessage.user {background: #3a3b43; color: #fff;}
+.stChatMessage.assistant {background: #353946; color: #aee8c7;}
+.stTextInput>div>div>input {border-radius: 8px; padding: 13px; background: #23272f; color: #eee;}
+.stButton>button {border-radius: 10px; background-color: #10a37f; color: white;}
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+</style>
 """, unsafe_allow_html=True)
 
-# Sidebar - Chat History
+# === SIDEBAR (Chat History) ===
 with st.sidebar:
-    st.header("\U0001F4D1 Obrolan")
+    st.image("https://chat.openai.com/favicon.ico", width=30)
+    st.header("Obrolan")
     if "chat_sessions" not in st.session_state:
         st.session_state.chat_sessions = []
     if "current_chat" not in st.session_state:
         st.session_state.current_chat = []
-
-    if st.button("New Chat"):
+    if st.button("➕ New Chat", use_container_width=True):
         if st.session_state.current_chat:
             st.session_state.chat_sessions.append(st.session_state.current_chat)
         st.session_state.current_chat = []
-
-    for i, chat in enumerate(reversed(st.session_state.chat_sessions)):
-        if st.button(f"Q{i+1}: {chat[0][0][:30]}..."):
+        st.experimental_rerun()
+    for i, chat in enumerate(reversed(st.session_state.chat_sessions[-8:])):
+        t = chat[0][2] if chat and len(chat[0]) > 2 else ""
+        summary = (chat[0][0][:28] + "...") if chat and chat[0][0] else f"Chat {i+1}"
+        if st.button(f"🗨️ {summary} {t}", key=f"history{i}", use_container_width=True):
             st.session_state.current_chat = chat
+            st.experimental_rerun()
+    st.markdown("---")
+    st.caption("🧠 **AI for U Controller**\n\nv1.0 | Mirip ChatGPT")
 
-    for q, a in st.session_state.current_chat:
-        st.markdown(f"**Q:** {q}\n\n*A: {a}*")
+# === MAIN HEADER ===
+st.markdown("""
+<div style="display:flex;align-items:center;gap:13px;">
+    <span style="font-size:2.5em;">🧠</span>
+    <span style="font-size:2.0em;font-weight:bold;">AI for U Controller</span>
+</div>
+""", unsafe_allow_html=True)
 
-# Upload File Area (GDrive)
-st.subheader("\U0001F4C2 Upload file ke Drive Shared")
-uploaded_file = st.file_uploader("Upload file", type=['pdf'])
+# === UPLOAD PDF ===
+uploaded_file = st.file_uploader("Upload file ke Drive Shared (PDF saja, max 200MB)", type=['pdf'], label_visibility="collapsed")
 if uploaded_file:
     with open(uploaded_file.name, "wb") as f:
         f.write(uploaded_file.getbuffer())
-
-    credentials_dict = st.secrets["gdrive_service_account"]
+    creds = st.secrets["gdrive_service_account"]
     credentials = service_account.Credentials.from_service_account_info(
-        credentials_dict,
-        scopes=["https://www.googleapis.com/auth/drive"]
+        creds, scopes=["https://www.googleapis.com/auth/drive"]
     )
     drive_service = build("drive", "v3", credentials=credentials)
-
     folder_id = st.secrets["gdrive_folder_id"]
     media = MediaFileUpload(uploaded_file.name, resumable=True)
-    file_metadata = {
-        "name": uploaded_file.name,
-        "parents": [folder_id]
-    }
+    file_metadata = {"name": uploaded_file.name, "parents": [folder_id]}
     try:
-        uploaded = drive_service.files().create(body=file_metadata, media_body=media, fields="id").execute()
-        file_url = f"https://drive.google.com/file/d/{uploaded['id']}/view"
+        result = drive_service.files().create(body=file_metadata, media_body=media, fields="id").execute()
+        file_url = f"https://drive.google.com/file/d/{result['id']}/view"
         os.remove(uploaded_file.name)
-        st.success(f"File berhasil diupload ke GDrive: [Lihat File]({file_url})")
+        st.success(f"✅ File berhasil diupload: [Lihat File]({file_url})")
+        # Ekstrak teks PDF
         reader = PdfReader(uploaded_file)
-        content = "\n".join([page.extract_text() or "" for page in reader.pages])
-        st.session_state.last_uploaded_text = content
+        text = "\n".join([p.extract_text() or "" for p in reader.pages])
+        st.session_state.doc_text = text
+        st.session_state.last_uploaded_name = uploaded_file.name
     except Exception as e:
-        st.error("Upload gagal: " + str(e))
+        st.error(f"❌ Upload gagal: {str(e)}")
 
-# Chat Area
-st.title("\U0001F9E0 AI for U Controller")
-st.write("Silakan masukkan pertanyaan Anda:")
+# === TAMPILKAN CHAT HISTORY (BUBBLE) ===
+for q, a, t, utype in st.session_state.current_chat:
+    st.chat_message("user" if utype == "user" else "assistant", avatar="👤" if utype == "user" else "🤖") \
+        .markdown(f"{q if utype=='user' else a}\n<div style='font-size:11px;color:#888;text-align:right'>{t}</div>", unsafe_allow_html=True)
 
-question = st.text_input("", placeholder="Tanyakan sesuatu…")
-response = ""
+# === QUICK PROMPT BUTTONS ===
+col1, col2, col3, col4 = st.columns(4)
+if col1.button("Berapa harga ICP bulan lalu?"):
+    st.session_state["prompt_pre"] = "Berapa harga ICP bulan lalu?"
+    st.experimental_rerun()
+if col2.button("Apa kurs USD hari ini?"):
+    st.session_state["prompt_pre"] = "Apa kurs USD hari ini?"
+    st.experimental_rerun()
+if col3.button("Upload laporan PIS terbaru"):
+    st.session_state["prompt_pre"] = "Upload laporan PIS terbaru"
+    st.experimental_rerun()
+if col4.button("Nilai tukar Rupiah sekarang?"):
+    st.session_state["prompt_pre"] = "Nilai tukar Rupiah sekarang?"
+    st.experimental_rerun()
 
-# Keyword rules
-icp_keywords = ["harga minyak", "ICP", "crude price"]
-kurs_keywords = ["kurs", "rupiah", "exchange rate", "USD", "nilai tukar"]
-ucapan_keywords = ["halo", "hai", "hi"]
-
-openai.api_key = st.secrets["openai_api_key"]
-
-def ask_openai(prompt):
-    try:
-        completion = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}]
-        )
-        return completion.choices[0].message.content
-    except Exception as e:
-        return f"Gagal mengambil jawaban dari OpenAI: {e}"
+# === INPUT CHAT ===
+if "prompt_pre" in st.session_state:
+    question = st.session_state.pop("prompt_pre")
+else:
+    question = st.chat_input("Tanyakan sesuatu…")
 
 if question:
-    st.chat_message("user").markdown(question)
-    if any(k in question.lower() for k in icp_keywords):
-        response = "Informasi ICP dapat dicek di https://migas.esdm.go.id/post/harga-minyak-mentah"
-    elif any(k in question.lower() for k in kurs_keywords):
-        response = "Informasi kurs BI tersedia di https://www.bi.go.id/id/statistik/informasi-kurs/transaksi-bi/default.aspx"
-    elif any(k in question.lower() for k in ucapan_keywords):
-        response = "Halo! Apakah ada yang bisa saya bantu?"
-    elif "last_uploaded_text" in st.session_state and st.session_state.last_uploaded_text:
-        context = st.session_state.last_uploaded_text[:2000]  # limit context length
-        prompt = f"Berikut isi dokumen:\n{context}\n\nPertanyaan: {question}"
-        response = ask_openai(prompt)
-    else:
+    now = datetime.now().strftime("%H:%M")
+    st.chat_message("user", avatar="👤").markdown(f"{question}\n<div style='font-size:11px;color:#888;text-align:right'>{now}</div>", unsafe_allow_html=True)
+    answer = None
+
+    # === 1. PDF Search (TF-IDF)
+    if "doc_text" in st.session_state:
+        chunks = [p.strip() for p in st.session_state.doc_text.split("\n") if len(p.strip()) > 30]
+        try:
+            tfidf = TfidfVectorizer().fit_transform([question] + chunks)
+            sims = cosine_similarity(tfidf[0:1], tfidf[1:]).flatten()
+            best_idx = sims.argmax()
+            if sims[best_idx] > 0.11:
+                answer = chunks[best_idx]
+        except:
+            pass
+
+    # === 2. Web Search Fallback
+    if not answer:
         try:
             with DDGS() as ddgs:
                 result = next(ddgs.text(question), None)
                 if result:
-                    response = result['body']
-                else:
-                    response = ask_openai(question)
+                    answer = result['body']
         except:
-            response = "Maaf, terjadi kesalahan saat mencari informasi."
+            pass
 
-    st.chat_message("assistant").markdown(response)
-    st.session_state.current_chat.append((question, response))
+    # === 3. Fallback ke OpenAI
+    if not answer:
+        try:
+            completion = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "user", "content": question}]
+            )
+            answer = completion.choices[0].message.content
+        except:
+            answer = "❌ Maaf, terjadi kesalahan saat mencari informasi."
 
-# Example prompt tools
-st.markdown("""
----
-<h4>Contoh pertanyaan:</h4>
-<div class="example-button" onclick="window.location.href='?q=Berapa harga ICP bulan lalu?'">Berapa harga ICP bulan lalu?</div>
-<div class="example-button" onclick="window.location.href='?q=Apa kurs USD hari ini?'">Apa kurs USD hari ini?</div>
-<div class="example-button" onclick="window.location.href='?q=Upload laporan PIS terbaru'">Upload laporan PIS terbaru</div>
-<div class="example-button" onclick="window.location.href='?q=Nilai tukar Rupiah sekarang?'">Nilai tukar Rupiah sekarang?</div>
-""", unsafe_allow_html=True)
+    st.chat_message("assistant", avatar="🤖").markdown(f"{answer}\n<div style='font-size:11px;color:#bbb;text-align:right'>{now}</div>", unsafe_allow_html=True)
+    st.session_state.current_chat.append((question, "", now, "user"))
+    st.session_state.current_chat.append(("", answer, now, "assistant"))
+    st.experimental_rerun()
