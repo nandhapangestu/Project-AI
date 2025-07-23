@@ -179,14 +179,14 @@ if question:
         except Exception as e:
             error_msg = f"Web Search Error: {e}"
 
-    # === 3. Fallback ke OpenAI
+    # === 3. Fallback ke OpenAI (SYNTAX TERBARU openai>=1.0.0)
     if not answer:
         try:
-            completion = openai.ChatCompletion.create(
+            response = openai.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[{"role": "user", "content": question}]
             )
-            answer = completion.choices[0].message.content
+            answer = response.choices[0].message.content
         except Exception as e:
             error_msg = f"OpenAI Error: {e}"
 
@@ -205,4 +205,4 @@ if question:
 
     st.session_state.current_chat.append((question, "", now, "user"))
     st.session_state.current_chat.append(("", answer if answer else f"❌ Maaf, terjadi kesalahan saat mencari informasi. {error_msg if error_msg else ''}", now, "assistant"))
-    # >>> TIDAK ADA st.experimental_rerun() DI SINI!
+    # TIDAK ADA st.experimental_rerun() DI SINI!
