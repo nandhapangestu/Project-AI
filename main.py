@@ -59,7 +59,6 @@ with st.sidebar:
     theme_icon = "☀️ Light" if st.session_state.theme_mode == "dark" else "🌙 Dark"
     if st.button(f"Switch to {theme_icon}", key="themebtn", use_container_width=True):
         st.session_state.theme_mode = "light" if st.session_state.theme_mode == "dark" else "dark"
-    # Streamlit auto rerun kalau state berubah
 
     # Chat session/history logic
     if "chat_sessions" not in st.session_state:
@@ -72,9 +71,8 @@ with st.sidebar:
         st.session_state.current_chat = []
         st.experimental_rerun()
     for i, chat in enumerate(reversed(st.session_state.chat_sessions[-8:])):
-        t = chat[0][2] if chat and len(chat[0]) > 2 else ""
         summary = (chat[0][0][:28] + "...") if chat and chat[0][0] else f"Chat {i+1}"
-        if st.button(f"🗨️ {summary} {t}", key=f"history{i}", use_container_width=True):
+        if st.button(f"🗨️ {summary}", key=f"history{i}", use_container_width=True):
             st.session_state.current_chat = chat
             st.experimental_rerun()
     st.markdown("---")
@@ -122,10 +120,10 @@ if uploaded_file:
     except Exception as e:
         st.error(f"❌ Upload gagal: {str(e)}")
 
-# === TAMPILKAN CHAT HISTORY (BUBBLE) ===
-for q, a, t, utype in st.session_state.current_chat:
+# === TAMPILKAN CHAT HISTORY (TANPA JAM) ===
+for q, a, _, utype in st.session_state.current_chat:
     st.chat_message("user" if utype == "user" else "assistant", avatar="👤" if utype == "user" else "🤖") \
-        .markdown(f"{q if utype=='user' else a}\n<div style='font-size:11px;color:#888;text-align:right'>{t}</div>", unsafe_allow_html=True)
+        .markdown(q if utype == 'user' else a, unsafe_allow_html=True)
 
 # === QUICK PROMPT BUTTONS ===
 col1, col2, col3, col4 = st.columns(4)
@@ -149,11 +147,8 @@ else:
     question = st.chat_input("Tanyakan sesuatu…")
 
 if question:
-    now = datetime.now().strftime("%H:%M")
-    st.chat_message("user", avatar="👤").markdown(
-        f"{question}\n<div style='font-size:11px;color:#888;text-align:right'>{now}</div>", 
-        unsafe_allow_html=True
-    )
+    # now = datetime.now().strftime("%H:%M")  # Tidak dipakai lagi
+    st.chat_message("user", avatar="👤").markdown(question, unsafe_allow_html=True)
     answer = None
     error_msg = None
 
@@ -190,19 +185,15 @@ if question:
         except Exception as e:
             error_msg = f"OpenAI Error: {e}"
 
-    # Show assistant message
+    # Show assistant message (tanpa jam)
     if answer:
-        st.chat_message("assistant", avatar="🤖").markdown(
-            f"{answer}\n<div style='font-size:11px;color:#bbb;text-align:right'>{now}</div>", 
-            unsafe_allow_html=True
-        )
+        st.chat_message("assistant", avatar="🤖").markdown(answer, unsafe_allow_html=True)
     else:
         st.chat_message("assistant", avatar="🤖").markdown(
-            f"❌ Maaf, terjadi kesalahan saat mencari informasi. {error_msg if error_msg else ''}\n"
-            f"<div style='font-size:11px;color:#bbb;text-align:right'>{now}</div>",
+            f"❌ Maaf, terjadi kesalahan saat mencari informasi. {error_msg if error_msg else ''}",
             unsafe_allow_html=True
         )
 
-    st.session_state.current_chat.append((question, "", now, "user"))
-    st.session_state.current_chat.append(("", answer if answer else f"❌ Maaf, terjadi kesalahan saat mencari informasi. {error_msg if error_msg else ''}", now, "assistant"))
-    # TIDAK ADA st.experimental_rerun() DI SINI!
+    # Simpan chat ke session_state tanpa waktu (pakai '' agar format tidak rusak)
+    st.session_state.current_chat.append((question, "", "", "user"))
+    st.session_state.current_chat.append(("", answer if answer else f"❌ Maaf, terjadi kesalahan saat mencari informasi. {error_msg if error_msg else ''}", "", "assistant"))
