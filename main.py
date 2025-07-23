@@ -24,10 +24,11 @@ DARK_CSS = """
 .stChatMessage.assistant {background: #353946; color: #aee8c7;}
 .stTextInput>div>div>input {border-radius: 8px; padding: 13px; background: #23272f; color: #eee;}
 .stButton>button, .stButton>button:active {border-radius: 10px; background-color: #10a37f; color: white;}
+.upload-fab {position:absolute;top:16px;right:36px;z-index:9;}
+.upload-btn {border-radius:40px;background:#ececf1;padding:10px 14px;font-size:1.45em;border:none;cursor:pointer;}
+.upload-btn:hover {background:#8db5e3;color:#1463c3;}
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
-.example-btn {display:inline-block;margin:7px 9px 7px 0;padding:9px 19px;background:#333646;border-radius:7px;cursor:pointer;font-size:0.98em;border:none;color:#f0f0f0;transition:0.2s;}
-.example-btn:hover {background:#10a37f;color:#fff;}
 </style>
 """
 LIGHT_CSS = """
@@ -40,10 +41,11 @@ LIGHT_CSS = """
 .stChatMessage.assistant {background: #eaf8f1; color: #007860;}
 .stTextInput>div>div>input {border-radius: 8px; padding: 13px; background: #fff; color: #222;}
 .stButton>button, .stButton>button:active {border-radius: 10px; background-color: #10a37f; color: white;}
+.upload-fab {position:absolute;top:16px;right:36px;z-index:9;}
+.upload-btn {border-radius:40px;background:#ececf1;padding:10px 14px;font-size:1.45em;border:none;cursor:pointer;}
+.upload-btn:hover {background:#aee0ef;color:#1877fa;}
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
-.example-btn {display:inline-block;margin:7px 9px 7px 0;padding:9px 19px;background:#e3e6e8;border-radius:7px;cursor:pointer;font-size:0.98em;border:none;color:#1a1a1a;transition:0.2s;}
-.example-btn:hover {background:#10a37f;color:#fff;}
 </style>
 """
 
@@ -85,17 +87,23 @@ if st.session_state.theme_mode == "dark":
 else:
     st.markdown(LIGHT_CSS, unsafe_allow_html=True)
 
-# === MAIN HEADER ===
-st.markdown("""
-<div style="display:flex;align-items:center;gap:13px;">
-    <span style="font-size:2.5em;">🧠</span>
-    <span style="font-size:2.0em;font-weight:bold;">AI for U Controller</span>
-</div>
-""", unsafe_allow_html=True)
-
-# === UPLOAD PDF ===
+# === FAB UPLOAD BUTTON KANAN ATAS ===
+st.markdown(
+    """
+    <div class="upload-fab">
+        <form action="" method="post" enctype="multipart/form-data">
+            <label for="fab-uploader">
+                <button type="button" class="upload-btn" title="Upload file PDF">
+                    ⬆️
+                </button>
+            </label>
+            <input id="fab-uploader" name="fab-uploader" type="file" style="display:none;" onchange="this.form.submit()" accept=".pdf"/>
+        </form>
+    </div>
+    """, unsafe_allow_html=True
+)
 uploaded_file = st.file_uploader(
-    "Upload file ke Drive Shared (PDF saja, max 200MB)", type=['pdf'], label_visibility="collapsed"
+    "", type=['pdf'], label_visibility="collapsed", key="fab-uploader", help="Upload file PDF"
 )
 if uploaded_file:
     with open(uploaded_file.name, "wb") as f:
@@ -120,21 +128,18 @@ if uploaded_file:
     except Exception as e:
         st.error(f"❌ Upload gagal: {str(e)}")
 
+# === HEADER ===
+st.markdown("""
+<div style="display:flex;align-items:center;gap:13px;margin-top:12px;">
+    <span style="font-size:2.5em;">🧠</span>
+    <span style="font-size:2.0em;font-weight:bold;">AI for U Controller</span>
+</div>
+""", unsafe_allow_html=True)
+
 # === TAMPILKAN CHAT HISTORY (TANPA JAM) ===
 for q, a, _, utype in st.session_state.current_chat:
     st.chat_message("user" if utype == "user" else "assistant", avatar="👤" if utype == "user" else "🤖") \
         .markdown(q if utype == 'user' else a, unsafe_allow_html=True)
-
-# === QUICK PROMPT BUTTONS ===
-col1, col2, col3, col4 = st.columns(4)
-if col1.button("Berapa harga ICP bulan lalu?"):
-    st.session_state["prompt_pre"] = "Berapa harga ICP bulan lalu?"
-if col2.button("Apa kurs USD hari ini?"):
-    st.session_state["prompt_pre"] = "Apa kurs USD hari ini?"
-if col3.button("Upload laporan PIS terbaru"):
-    st.session_state["prompt_pre"] = "Upload laporan PIS terbaru"
-if col4.button("Nilai tukar Rupiah sekarang?"):
-    st.session_state["prompt_pre"] = "Nilai tukar Rupiah sekarang?"
 
 # === Selalu render input box agar tidak pernah hilang ===
 user_input = st.chat_input("Tanyakan sesuatu…")
