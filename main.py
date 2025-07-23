@@ -53,7 +53,7 @@ with st.sidebar:
     st.image("https://chat.openai.com/favicon.ico", width=30)
     st.header("Obrolan")
 
-    # === Toggle Theme Button ===
+    # Theme toggle
     if "theme_mode" not in st.session_state:
         st.session_state.theme_mode = "dark"
     theme_icon = "☀️ Light" if st.session_state.theme_mode == "dark" else "🌙 Dark"
@@ -155,6 +155,7 @@ if question:
         unsafe_allow_html=True
     )
     answer = None
+    error_msg = None
 
     # === 1. PDF Search (TF-IDF)
     if "doc_text" in st.session_state:
@@ -166,7 +167,7 @@ if question:
             if sims[best_idx] > 0.11:
                 answer = chunks[best_idx]
         except Exception as e:
-            pass
+            error_msg = f"PDF Search Error: {e}"
 
     # === 2. Web Search Fallback
     if not answer:
@@ -176,7 +177,7 @@ if question:
                 if result:
                     answer = result['body']
         except Exception as e:
-            pass
+            error_msg = f"Web Search Error: {e}"
 
     # === 3. Fallback ke OpenAI
     if not answer:
@@ -187,12 +188,21 @@ if question:
             )
             answer = completion.choices[0].message.content
         except Exception as e:
-            answer = "❌ Maaf, terjadi kesalahan saat mencari informasi."
+            error_msg = f"OpenAI Error: {e}"
 
-    st.chat_message("assistant", avatar="🤖").markdown(
-        f"{answer}\n<div style='font-size:11px;color:#bbb;text-align:right'>{now}</div>", 
-        unsafe_allow_html=True
-    )
+    # Show assistant message
+    if answer:
+        st.chat_message("assistant", avatar="🤖").markdown(
+            f"{answer}\n<div style='font-size:11px;color:#bbb;text-align:right'>{now}</div>", 
+            unsafe_allow_html=True
+        )
+    else:
+        st.chat_message("assistant", avatar="🤖").markdown(
+            f"❌ Maaf, terjadi kesalahan saat mencari informasi. {error_msg if error_msg else ''}\n"
+            f"<div style='font-size:11px;color:#bbb;text-align:right'>{now}</div>",
+            unsafe_allow_html=True
+        )
+
     st.session_state.current_chat.append((question, "", now, "user"))
-    st.session_state.current_chat.append(("", answer, now, "assistant"))
-    # TIDAK PERLU st.experimental_rerun() DI SINI!
+    st.session_state.current_chat.append(("", answer if answer else f"❌ Maaf, terjadi kesalahan saat mencari informasi. {error_msg if error_msg else ''}", now, "assistant"))
+    # >>> TIDAK ADA st.experimental_rerun() DI SINI!
