@@ -9,50 +9,17 @@ from sklearn.metrics.pairwise import cosine_similarity
 import openai
 import os
 
-# === PAGE CONFIG ===
 st.set_page_config(page_title="AI for U Controller", layout="wide", initial_sidebar_state="expanded")
 openai.api_key = st.secrets["openai_api_key"]
 
-# === THEME CSS ===
-DARK_CSS = """
-<style>
-.stApp {background: #23272f !important; color: #e8e9ee;}
-[data-testid="stSidebar"] > div:first-child {background: #17181c;}
-.st-emotion-cache-13ln4jf, .css-1544g2n {background: #23272f !important;}
-.stChatMessage {padding: 0.7em 1em; border-radius: 1.5em; margin-bottom: 0.8em;}
-.stChatMessage.user {background: #3a3b43; color: #fff;}
-.stChatMessage.assistant {background: #353946; color: #aee8c7;}
-.stTextInput>div>div>input {border-radius: 8px; padding: 13px; background: #23272f; color: #eee;}
-.stButton>button, .stButton>button:active {border-radius: 10px; background-color: #10a37f; color: white;}
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-.example-btn {display:inline-block;margin:7px 9px 7px 0;padding:9px 19px;background:#333646;border-radius:7px;cursor:pointer;font-size:0.98em;border:none;color:#f0f0f0;transition:0.2s;}
-.example-btn:hover {background:#10a37f;color:#fff;}
-</style>
-"""
-LIGHT_CSS = """
-<style>
-.stApp {background: #f7f8fa !important; color: #222;}
-[data-testid="stSidebar"] > div:first-child {background: #fff;}
-.st-emotion-cache-13ln4jf, .css-1544g2n {background: #f7f8fa !important;}
-.stChatMessage {padding: 0.7em 1em; border-radius: 1.5em; margin-bottom: 0.8em;}
-.stChatMessage.user {background: #f1f3f5; color: #222;}
-.stChatMessage.assistant {background: #eaf8f1; color: #007860;}
-.stTextInput>div>div>input {border-radius: 8px; padding: 13px; background: #fff; color: #222;}
-.stButton>button, .stButton>button:active {border-radius: 10px; background-color: #10a37f; color: white;}
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-.example-btn {display:inline-block;margin:7px 9px 7px 0;padding:9px 19px;background:#e3e6e8;border-radius:7px;cursor:pointer;font-size:0.98em;border:none;color:#1a1a1a;transition:0.2s;}
-.example-btn:hover {background:#10a37f;color:#fff;}
-</style>
-"""
+DARK_CSS = """<style> ... </style>"""  # Tempel dari script sebelumnya
+LIGHT_CSS = """<style> ... </style>"""
 
 # === SIDEBAR ===
 with st.sidebar:
     st.image("https://chat.openai.com/favicon.ico", width=30)
     st.header("Obrolan")
 
-    # Theme switch
     if "theme_mode" not in st.session_state:
         st.session_state.theme_mode = "dark"
     theme_icon = "☀️ Light" if st.session_state.theme_mode == "dark" else "🌙 Dark"
@@ -70,22 +37,33 @@ with st.sidebar:
             st.session_state.chat_sessions.append(st.session_state.current_chat)
         st.session_state.current_chat = []
 
-    # Riwayat chat (hanya 8 terakhir)
     for i, chat in enumerate(reversed(st.session_state.chat_sessions[-8:])):
         summary = (chat[0][0][:28] + "...") if chat and chat[0][0] else f"Chat {i+1}"
         if st.button(f"🗨️ {summary}", key=f"history{i}", use_container_width=True):
             st.session_state.current_chat = chat
 
     st.markdown("---")
+
+    st.markdown("<b>Contoh pertanyaan:</b>", unsafe_allow_html=True)
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("Berapa harga ICP bulan lalu?", key="icpbtn", use_container_width=True):
+            st.session_state["prompt_pre"] = "Berapa harga ICP bulan lalu?"
+        if st.button("Upload laporan PIS terbaru", key="uploadpis", use_container_width=True):
+            st.session_state["prompt_pre"] = "Upload laporan PIS terbaru"
+    with c2:
+        if st.button("Apa kurs USD hari ini?", key="usd", use_container_width=True):
+            st.session_state["prompt_pre"] = "Apa kurs USD hari ini?"
+        if st.button("Nilai tukar Rupiah sekarang?", key="rupiah", use_container_width=True):
+            st.session_state["prompt_pre"] = "Nilai tukar Rupiah sekarang?"
+
     st.caption("🧠 **AI for U Controller**\n\nv1.0 | Mirip ChatGPT")
 
-# === CSS THEME ===
 if st.session_state.theme_mode == "dark":
     st.markdown(DARK_CSS, unsafe_allow_html=True)
 else:
     st.markdown(LIGHT_CSS, unsafe_allow_html=True)
 
-# === MAIN HEADER ===
 st.markdown("""
 <div style="display:flex;align-items:center;gap:13px;">
     <span style="font-size:2.5em;">🧠</span>
@@ -93,10 +71,19 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# === UPLOAD PDF ===
-uploaded_file = st.file_uploader(
-    "Upload file ke Drive Shared (PDF saja, max 200MB)", type=['pdf'], label_visibility="collapsed"
-)
+# === TAMPILKAN CHAT HISTORY ===
+for q, a, _, utype in st.session_state.current_chat:
+    st.chat_message("user" if utype == "user" else "assistant", avatar="👤" if utype == "user" else "🤖") \
+        .markdown(q if utype == 'user' else a, unsafe_allow_html=True)
+
+# === Input bar & tombol upload di kanan ===
+input_col, upload_col = st.columns([10,1])
+with input_col:
+    user_input = st.chat_input("Tanyakan sesuatu…")
+with upload_col:
+    uploaded_file = st.file_uploader("", type=['pdf'], key="uploader2", label_visibility="collapsed")
+
+# === Handle Upload di input box ===
 if uploaded_file:
     with open(uploaded_file.name, "wb") as f:
         f.write(uploaded_file.getbuffer())
@@ -120,26 +107,7 @@ if uploaded_file:
     except Exception as e:
         st.error(f"❌ Upload gagal: {str(e)}")
 
-# === TAMPILKAN CHAT HISTORY (TANPA JAM) ===
-for q, a, _, utype in st.session_state.current_chat:
-    st.chat_message("user" if utype == "user" else "assistant", avatar="👤" if utype == "user" else "🤖") \
-        .markdown(q if utype == 'user' else a, unsafe_allow_html=True)
-
-# === QUICK PROMPT BUTTONS ===
-col1, col2, col3, col4 = st.columns(4)
-if col1.button("Berapa harga ICP bulan lalu?"):
-    st.session_state["prompt_pre"] = "Berapa harga ICP bulan lalu?"
-if col2.button("Apa kurs USD hari ini?"):
-    st.session_state["prompt_pre"] = "Apa kurs USD hari ini?"
-if col3.button("Upload laporan PIS terbaru"):
-    st.session_state["prompt_pre"] = "Upload laporan PIS terbaru"
-if col4.button("Nilai tukar Rupiah sekarang?"):
-    st.session_state["prompt_pre"] = "Nilai tukar Rupiah sekarang?"
-
-# === Selalu render input box agar tidak pernah hilang ===
-user_input = st.chat_input("Tanyakan sesuatu…")
-
-# === Jika ada prompt dari tombol, eksekusi lebih dulu ===
+# === Logic untuk prompt tombol & input ===
 if "prompt_pre" in st.session_state and st.session_state["prompt_pre"]:
     question = st.session_state["prompt_pre"]
     st.session_state["prompt_pre"] = ""
