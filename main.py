@@ -53,13 +53,13 @@ with st.sidebar:
     st.image("https://chat.openai.com/favicon.ico", width=30)
     st.header("Obrolan")
 
-    # Theme toggle
+    # === Theme toggle (tanpa st.experimental_rerun)
     if "theme_mode" not in st.session_state:
         st.session_state.theme_mode = "dark"
     theme_icon = "☀️ Light" if st.session_state.theme_mode == "dark" else "🌙 Dark"
     if st.button(f"Switch to {theme_icon}", key="themebtn", use_container_width=True):
         st.session_state.theme_mode = "light" if st.session_state.theme_mode == "dark" else "dark"
-        st.experimental_rerun()
+    # Streamlit auto rerun kalau state berubah
 
     # Chat session/history logic
     if "chat_sessions" not in st.session_state:
