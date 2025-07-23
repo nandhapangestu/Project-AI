@@ -13,98 +13,47 @@ import os
 st.set_page_config(page_title="AI for U Controller", layout="wide", initial_sidebar_state="expanded")
 openai.api_key = st.secrets["openai_api_key"]
 
-# === THEME CSS ===
+# === CSS THEME ===
 DARK_CSS = """
 <style>
 .stApp {background: #23272f !important; color: #e8e9ee;}
-[data-testid="stSidebar"] > div:first-child {background: #17181c;}
-.st-emotion-cache-13ln4jf, .css-1544g2n {background: #23272f !important;}
-.stChatMessage {padding: 0.7em 1em; border-radius: 1.5em; margin-bottom: 0.8em;}
-.stChatMessage.user {background: #3a3b43; color: #fff;}
-.stChatMessage.assistant {background: #353946; color: #aee8c7;}
-.stTextInput>div>div>input {border-radius: 8px; padding: 13px; background: #23272f; color: #eee;}
-.stButton>button, .stButton>button:active {border-radius: 10px; background-color: #10a37f; color: white;}
-.upload-fab {position:absolute;top:16px;right:36px;z-index:9;}
-.upload-btn {border-radius:40px;background:#ececf1;padding:10px 14px;font-size:1.45em;border:none;cursor:pointer;}
-.upload-btn:hover {background:#8db5e3;color:#1463c3;}
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
+.upload-fab {position:fixed;top:24px;right:36px;z-index:99;}
+.upload-btn {border-radius:50%;background:#ececf1;padding:0.5em 0.6em;font-size:1.3em;border:none;cursor:pointer;box-shadow:0 1px 7px 0 #0001;}
+.upload-btn:hover {background:#aee0ef;color:#1877fa;}
+#MainMenu, footer {visibility: hidden;}
 </style>
 """
 LIGHT_CSS = """
 <style>
 .stApp {background: #f7f8fa !important; color: #222;}
-[data-testid="stSidebar"] > div:first-child {background: #fff;}
-.st-emotion-cache-13ln4jf, .css-1544g2n {background: #f7f8fa !important;}
-.stChatMessage {padding: 0.7em 1em; border-radius: 1.5em; margin-bottom: 0.8em;}
-.stChatMessage.user {background: #f1f3f5; color: #222;}
-.stChatMessage.assistant {background: #eaf8f1; color: #007860;}
-.stTextInput>div>div>input {border-radius: 8px; padding: 13px; background: #fff; color: #222;}
-.stButton>button, .stButton>button:active {border-radius: 10px; background-color: #10a37f; color: white;}
-.upload-fab {position:absolute;top:16px;right:36px;z-index:9;}
-.upload-btn {border-radius:40px;background:#ececf1;padding:10px 14px;font-size:1.45em;border:none;cursor:pointer;}
-.upload-btn:hover {background:#aee0ef;color:#1877fa;}
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
+.upload-fab {position:fixed;top:24px;right:36px;z-index:99;}
+.upload-btn {border-radius:50%;background:#ececf1;padding:0.5em 0.6em;font-size:1.3em;border:none;cursor:pointer;box-shadow:0 1px 7px 0 #0001;}
+.upload-btn:hover {background:#d8e7fd;color:#1877fa;}
+#MainMenu, footer {visibility: hidden;}
 </style>
 """
 
-# === SIDEBAR ===
-with st.sidebar:
-    st.image("https://chat.openai.com/favicon.ico", width=30)
-    st.header("Obrolan")
-
-    # Theme switch
-    if "theme_mode" not in st.session_state:
-        st.session_state.theme_mode = "dark"
-    theme_icon = "☀️ Light" if st.session_state.theme_mode == "dark" else "🌙 Dark"
-    if st.button(f"Switch to {theme_icon}", key="themebtn", use_container_width=True):
-        st.session_state.theme_mode = "light" if st.session_state.theme_mode == "dark" else "dark"
-
-    # Chat session/history logic
-    if "chat_sessions" not in st.session_state:
-        st.session_state.chat_sessions = []
-    if "current_chat" not in st.session_state:
-        st.session_state.current_chat = []
-
-    if st.button("➕ New Chat", use_container_width=True):
-        if st.session_state.current_chat:
-            st.session_state.chat_sessions.append(st.session_state.current_chat)
-        st.session_state.current_chat = []
-
-    # Riwayat chat (hanya 8 terakhir)
-    for i, chat in enumerate(reversed(st.session_state.chat_sessions[-8:])):
-        summary = (chat[0][0][:28] + "...") if chat and chat[0][0] else f"Chat {i+1}"
-        if st.button(f"🗨️ {summary}", key=f"history{i}", use_container_width=True):
-            st.session_state.current_chat = chat
-
-    st.markdown("---")
-    st.caption("🧠 **AI for U Controller**\n\nv1.0 | Mirip ChatGPT")
-
-# === CSS THEME ===
+if "theme_mode" not in st.session_state:
+    st.session_state.theme_mode = "dark"
 if st.session_state.theme_mode == "dark":
     st.markdown(DARK_CSS, unsafe_allow_html=True)
 else:
     st.markdown(LIGHT_CSS, unsafe_allow_html=True)
 
-# === FAB UPLOAD BUTTON KANAN ATAS ===
-st.markdown(
-    """
-    <div class="upload-fab">
-        <form action="" method="post" enctype="multipart/form-data">
-            <label for="fab-uploader">
-                <button type="button" class="upload-btn" title="Upload file PDF">
-                    ⬆️
-                </button>
-            </label>
-            <input id="fab-uploader" name="fab-uploader" type="file" style="display:none;" onchange="this.form.submit()" accept=".pdf"/>
-        </form>
-    </div>
-    """, unsafe_allow_html=True
-)
-uploaded_file = st.file_uploader(
-    "", type=['pdf'], label_visibility="collapsed", key="fab-uploader", help="Upload file PDF"
-)
+# === FAB UPLOAD BUTTON KANAN ATAS (MINIMALIS) ===
+st.markdown("""
+<div class="upload-fab">
+    <form action="" method="post" enctype="multipart/form-data">
+        <label for="fab-uploader">
+            <button type="button" class="upload-btn" title="Upload PDF">
+                ⬆️
+            </button>
+        </label>
+        <input id="fab-uploader" name="fab-uploader" type="file" style="display:none;" onchange="this.form.submit()" accept=".pdf"/>
+    </form>
+</div>
+""", unsafe_allow_html=True)
+uploaded_file = st.file_uploader("", type=['pdf'], label_visibility="collapsed", key="fab-uploader", help="Upload file PDF")
 if uploaded_file:
     with open(uploaded_file.name, "wb") as f:
         f.write(uploaded_file.getbuffer())
@@ -128,7 +77,28 @@ if uploaded_file:
     except Exception as e:
         st.error(f"❌ Upload gagal: {str(e)}")
 
-# === HEADER ===
+# === SIDEBAR, HEADER, CHAT, INPUT, dll tetap seperti sebelumnya ===
+with st.sidebar:
+    st.image("https://chat.openai.com/favicon.ico", width=30)
+    st.header("Obrolan")
+    theme_icon = "☀️ Light" if st.session_state.theme_mode == "dark" else "🌙 Dark"
+    if st.button(f"Switch to {theme_icon}", key="themebtn", use_container_width=True):
+        st.session_state.theme_mode = "light" if st.session_state.theme_mode == "dark" else "dark"
+    if "chat_sessions" not in st.session_state:
+        st.session_state.chat_sessions = []
+    if "current_chat" not in st.session_state:
+        st.session_state.current_chat = []
+    if st.button("➕ New Chat", use_container_width=True):
+        if st.session_state.current_chat:
+            st.session_state.chat_sessions.append(st.session_state.current_chat)
+        st.session_state.current_chat = []
+    for i, chat in enumerate(reversed(st.session_state.chat_sessions[-8:])):
+        summary = (chat[0][0][:28] + "...") if chat and chat[0][0] else f"Chat {i+1}"
+        if st.button(f"🗨️ {summary}", key=f"history{i}", use_container_width=True):
+            st.session_state.current_chat = chat
+    st.markdown("---")
+    st.caption("🧠 **AI for U Controller**\n\nv1.0 | Mirip ChatGPT")
+
 st.markdown("""
 <div style="display:flex;align-items:center;gap:13px;margin-top:12px;">
     <span style="font-size:2.5em;">🧠</span>
@@ -136,19 +106,13 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# === TAMPILKAN CHAT HISTORY (TANPA JAM) ===
 for q, a, _, utype in st.session_state.current_chat:
     st.chat_message("user" if utype == "user" else "assistant", avatar="👤" if utype == "user" else "🤖") \
         .markdown(q if utype == 'user' else a, unsafe_allow_html=True)
 
-# === Selalu render input box agar tidak pernah hilang ===
 user_input = st.chat_input("Tanyakan sesuatu…")
 
-# === Jika ada prompt dari tombol, eksekusi lebih dulu ===
-if "prompt_pre" in st.session_state and st.session_state["prompt_pre"]:
-    question = st.session_state["prompt_pre"]
-    st.session_state["prompt_pre"] = ""
-elif user_input:
+if user_input:
     question = user_input
 else:
     question = None
