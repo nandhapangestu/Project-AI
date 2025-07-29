@@ -1,10 +1,36 @@
+
 import streamlit as st
 from PyPDF2 import PdfReader
 import pandas as pd
 import docx
 import os
+import requests
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+
+# === HUGGINGFACE LLM ===
+def generate_response(prompt):
+    headers = {
+        "Authorization": f"Bearer {st.secrets['HUGGINGFACE_API_KEY']}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "inputs": prompt,
+        "parameters": {
+            "max_new_tokens": 300,
+            "temperature": 0.7,
+            "do_sample": True
+        }
+    }
+    response = requests.post(
+        "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1",
+        headers=headers,
+        json=payload
+    )
+    if response.status_code == 200:
+        return response.json()[0]["generated_text"]
+    else:
+        return f"Gagal memanggil model: {response.status_code} – {response.text}"
 
 # === PAGE CONFIG ===
 st.set_page_config(page_title="AI for U Controller", layout="wide", initial_sidebar_state="expanded")
@@ -39,13 +65,11 @@ LIGHT_CSS = """
 with st.sidebar:
     st.image("https://chat.openai.com/favicon.ico", width=30)
     st.header("Obrolan")
-    # Theme switch
     if "theme_mode" not in st.session_state:
         st.session_state.theme_mode = "dark"
     theme_icon = "☀️ Light" if st.session_state.theme_mode == "dark" else "🌙 Dark"
     if st.button(f"Switch to {theme_icon}", key="themebtn", use_container_width=True):
         st.session_state.theme_mode = "light" if st.session_state.theme_mode == "dark" else "dark"
-    # Chat session/history logic
     if "chat_sessions" not in st.session_state:
         st.session_state.chat_sessions = []
     if "current_chat" not in st.session_state:
@@ -54,7 +78,6 @@ with st.sidebar:
         if st.session_state.current_chat:
             st.session_state.chat_sessions.append(st.session_state.current_chat)
         st.session_state.current_chat = []
-    # Riwayat chat (hanya 8 terakhir)
     for i, chat in enumerate(reversed(st.session_state.chat_sessions[-8:])):
         summary = (chat[0][0][:28] + "...") if chat and chat[0][0] else f"Chat {i+1}"
         if st.button(f"🗨️ {summary}", key=f"history{i}", use_container_width=True):
@@ -76,7 +99,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# === UPLOAD FILES (PDF/XLSX/DOCX/DOC) ===
+# === UPLOAD FILES ===
 uploaded_files = st.file_uploader(
     "Upload PDF, Excel, atau Word (PDF, XLSX, DOCX, DOC, max 200MB per file)", 
     type=['pdf', 'xlsx', 'xls', 'docx', 'doc'],
@@ -107,7 +130,6 @@ if uploaded_files:
             elif ext in ["docx", "doc"]:
                 doc = docx.Document(uploaded_file)
                 text_chunks = [para.text for para in doc.paragraphs if para.text.strip()]
-            # Simpan untuk pencarian
             all_chunks.extend([(name, chunk) for chunk in text_chunks if len(chunk.strip()) > 10])
             file_names.append(name)
         except Exception as e:
@@ -116,15 +138,14 @@ if uploaded_files:
     st.session_state.file_names = file_names
     st.success("File berhasil dibaca: " + ", ".join(file_names))
 
-# === TAMPILKAN CHAT HISTORY (TANPA JAM) ===
+# === TAMPILKAN CHAT HISTORY ===
 for q, a, _, utype in st.session_state.current_chat:
-    st.chat_message("user" if utype == "user" else "assistant", avatar="👤" if utype == "user" else "🤖") \
-        .markdown(q if utype == 'user' else a, unsafe_allow_html=True)
+    st.chat_message("user" if utype == "user" else "assistant", avatar="👤" if utype == "user" else "🤖")         .markdown(q if utype == 'user' else a, unsafe_allow_html=True)
 
 # === INPUT BOX ===
 user_input = st.chat_input("Tanyakan sesuatu…")
 
-# === Q&A JAWAB HANYA DARI FILE YANG DIUPLOAD ===
+# === Q&A ===
 if user_input:
     question = user_input
     st.chat_message("user", avatar="👤").markdown(question, unsafe_allow_html=True)
@@ -132,7 +153,6 @@ if user_input:
     chunks = st.session_state.all_text_chunks if "all_text_chunks" in st.session_state else []
 
     if chunks:
-        # Ambil semua text
         teks_sumber = [chunk[1] for chunk in chunks]
         sumber_file = [chunk[0] for chunk in chunks]
         try:
@@ -147,7 +167,7 @@ if user_input:
         except Exception as e:
             answer = f"File Search Error: {e}"
     else:
-        answer = "Silakan upload file PDF, Excel, atau Word terlebih dahulu sebelum bertanya."
+        answer = generate_response(question)
 
     st.chat_message("assistant", avatar="🤖").markdown(answer, unsafe_allow_html=True)
     st.session_state.current_chat.append((question, "", "", "user"))
