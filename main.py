@@ -1,13 +1,20 @@
-
 import streamlit as st
-import os
-import requests
 from PyPDF2 import PdfReader
 import pandas as pd
 import docx
+import requests
+import json
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
+# === API Key & Model ===
+HUGGINGFACE_API_KEY = st.secrets["HUGGINGFACE_API_KEY"]
+HF_MODEL = "mistralai/Mistral-7B-Instruct-v0.2"
+HF_API_URL = f"https://api-inference.huggingface.co/models/{HF_MODEL}"
+
+headers = {"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"}
+
+# === Streamlit Config ===
 st.set_page_config(page_title="AI for U Controller", layout="wide", initial_sidebar_state="expanded")
 
 DARK_CSS = """<style>
@@ -20,6 +27,7 @@ DARK_CSS = """<style>
 .stButton>button, .stButton>button:active {border-radius: 10px; background-color: #10a37f; color: white;}
 #MainMenu, footer {visibility: hidden;}
 </style>"""
+
 LIGHT_CSS = """<style>
 .stApp {background: #f7f8fa !important; color: #222;}
 [data-testid="stSidebar"] > div:first-child {background: #fff;}
@@ -31,6 +39,7 @@ LIGHT_CSS = """<style>
 #MainMenu, footer {visibility: hidden;}
 </style>"""
 
+# === Sidebar ===
 with st.sidebar:
     st.image("https://chat.openai.com/favicon.ico", width=30)
     st.header("Obrolan")
@@ -52,7 +61,7 @@ with st.sidebar:
         if st.button(f"🗨️ {summary}", key=f"history{i}", use_container_width=True):
             st.session_state.current_chat = chat
     st.markdown("---")
-    st.caption("🧠 **AI for U Controller**\n\nv1.0 | Mirip ChatGPT")
+    st.caption("🧠 **AI for U Controller**\nv1.0 | Mirip ChatGPT")
 
 if st.session_state.theme_mode == "dark":
     st.markdown(DARK_CSS, unsafe_allow_html=True)
@@ -66,12 +75,8 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-uploaded_files = st.file_uploader(
-    "Upload PDF, Excel, atau Word (PDF, XLSX, DOCX, DOC, max 200MB per file)",
-    type=['pdf', 'xlsx', 'xls', 'docx', 'doc'],
-    label_visibility="collapsed",
-    accept_multiple_files=True
-)
+# === Upload ===
+uploaded_files = st.file_uploader("Upload file PDF, Excel, atau Word:", type=['pdf', 'xlsx', 'xls', 'docx', 'doc'], label_visibility="collapsed", accept_multiple_files=True)
 if "all_text_chunks" not in st.session_state:
     st.session_state.all_text_chunks = []
 if "file_names" not in st.session_state:
@@ -79,7 +84,6 @@ if "file_names" not in st.session_state:
 
 if uploaded_files:
     all_chunks = []
-    file_names = []
     for uploaded_file in uploaded_files:
         name = uploaded_file.name
         ext = name.split(".")[-1].lower()
@@ -97,59 +101,46 @@ if uploaded_files:
                 doc = docx.Document(uploaded_file)
                 text_chunks = [para.text for para in doc.paragraphs if para.text.strip()]
             all_chunks.extend([(name, chunk) for chunk in text_chunks if len(chunk.strip()) > 10])
-            file_names.append(name)
         except Exception as e:
-            st.warning(f"Gagal baca file {name}: {e}")
+            st.warning(f"Gagal membaca file {name}: {e}")
     st.session_state.all_text_chunks = all_chunks
-    st.session_state.file_names = file_names
-    st.success("File berhasil dibaca: " + ", ".join(file_names))
+    st.success("File berhasil dibaca.")
 
+# === History ===
 for q, a, _, utype in st.session_state.current_chat:
-    st.chat_message("user" if utype == "user" else "assistant", avatar="👤" if utype == "user" else "🤖")         .markdown(q if utype == 'user' else a, unsafe_allow_html=True)
+    st.chat_message("user" if utype == "user" else "assistant", avatar="👤" if utype == "user" else "🤖").markdown(q if utype == "user" else a, unsafe_allow_html=True)
 
+# === Input Chat ===
 user_input = st.chat_input("Tanyakan sesuatu…")
 
-if user_input:
-    question = user_input
-    st.chat_message("user", avatar="👤").markdown(question, unsafe_allow_html=True)
-    answer = None
-    chunks = st.session_state.all_text_chunks if "all_text_chunks" in st.session_state else []
+def call_huggingface(question, context):
+    payload = {
+        "inputs": f"Pertanyaan: {question}\n\nJawaban berdasarkan:
+{context}\n
+Jawaban:",
+        "options": {"wait_for_model": True}
+    }
+    res = requests.post(HF_API_URL, headers=headers, data=json.dumps(payload))
+    if res.status_code == 200:
+        return res.json()[0]['generated_text'].split("Jawaban:")[-1].strip()
+    else:
+        return f"Gagal memanggil model: {res.status_code} – {res.reason}\n\n{res.text}"
 
+if user_input:
+    st.chat_message("user", avatar="👤").markdown(user_input, unsafe_allow_html=True)
+    chunks = st.session_state.all_text_chunks
     if chunks:
         teks_sumber = [chunk[1] for chunk in chunks]
-        sumber_file = [chunk[0] for chunk in chunks]
         try:
-            tfidf = TfidfVectorizer().fit_transform([question] + teks_sumber)
+            tfidf = TfidfVectorizer().fit_transform([user_input] + teks_sumber)
             sims = cosine_similarity(tfidf[0:1], tfidf[1:]).flatten()
-            best_idx = sims.argmax()
-            if sims[best_idx] > 0.11:
-                best_file = sumber_file[best_idx]
-                answer = f"**[Dari file: {best_file}]**\n\n{teks_sumber[best_idx]}"
-            else:
-                answer = None
+            top_idxs = sims.argsort()[-3:][::-1]
+            context = "\n\n".join([teks_sumber[i] for i in top_idxs if sims[i] > 0.1])
+            answer = call_huggingface(user_input, context) if context else "Maaf, tidak ada konteks relevan dari file."
         except Exception as e:
-            answer = f"File Search Error: {e}"
-
-    if answer is None:
-        try:
-            headers = {
-                "Authorization": f"Bearer {st.secrets['HUGGINGFACE_API_KEY']}"
-            }
-            payload = {
-                "inputs": question,
-                "parameters": {"temperature": 0.7, "max_new_tokens": 300}
-            }
-            response = requests.post(
-                "https://api-inference.huggingface.co/models/google/flan-t5-base",
-                headers=headers,
-                json=payload
-            )
-            response.raise_for_status()
-            result = response.json()
-            answer = result[0]["generated_text"].replace(question, "").strip()
-        except Exception as e:
-            answer = f"Gagal memanggil model: {e}"
-
+            answer = f"Terjadi kesalahan saat pencarian file: {e}"
+    else:
+        answer = "Silakan upload file terlebih dahulu."
     st.chat_message("assistant", avatar="🤖").markdown(answer, unsafe_allow_html=True)
-    st.session_state.current_chat.append((question, "", "", "user"))
+    st.session_state.current_chat.append((user_input, "", "", "user"))
     st.session_state.current_chat.append(("", answer, "", "assistant"))
