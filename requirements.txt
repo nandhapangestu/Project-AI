@@ -45,3 +45,6 @@ ipython
 jupyter
 black
 pre-commit
+# === HuggingFace Transformers for Open-Source LLM ===
+transformers
+accelerate
