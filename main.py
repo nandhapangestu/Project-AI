@@ -23,7 +23,7 @@ def generate_response(prompt):
         }
     }
     response = requests.post(
-        "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1",
+        "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta",
         headers=headers,
         json=payload
     )
