@@ -140,7 +140,7 @@ if user_input:
                 "parameters": {"temperature": 0.7, "max_new_tokens": 300}
             }
             response = requests.post(
-                "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta",
+                "https://api-inference.huggingface.co/models/google/flan-t5-base",
                 headers=headers,
                 json=payload
             )
