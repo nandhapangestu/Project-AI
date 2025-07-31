@@ -1,28 +1,30 @@
 import streamlit as st
 import os
-from PyPDF2 import PdfReader
 import pandas as pd
 import docx
 import pdfplumber
 import re
 import traceback
+import easyocr
+import io
 from transformers import pipeline
 
-# === MODEL QA ===
+# === Load QA Model ===
 @st.cache_resource
 def load_model():
     try:
         return pipeline("question-answering", model="deepset/roberta-base-squad2")
     except Exception as e:
-        st.error("❌ Gagal load model QA dari HuggingFace.")
+        st.error("Gagal load model HuggingFace.")
         st.stop()
 
 qa_model = load_model()
+reader = easyocr.Reader(['en'], gpu=False)
 
-# === PAGE CONFIG ===
+# === Page Setup ===
 st.set_page_config(page_title="AI for U Controller", layout="wide", initial_sidebar_state="expanded")
 
-# === THEME ===
+# === Theme CSS ===
 DARK_CSS = """<style>
 .stApp {background: #23272f !important; color: #e8e9ee;}
 [data-testid="stSidebar"] > div:first-child {background: #17181c;}
@@ -45,9 +47,8 @@ LIGHT_CSS = """<style>
 #MainMenu, footer {visibility: hidden;}
 </style>"""
 
-# === THE APP ===
+# === Main App ===
 def main():
-    # === SIDEBAR ===
     with st.sidebar:
         logo_path = "static/Logo_Pertamina_PIS.png"
         if os.path.exists(logo_path):
@@ -80,15 +81,10 @@ def main():
                 st.session_state.current_chat = chat
 
         st.markdown("---")
-        st.caption("🧠 **AI for U Controller**\n\n© 2025 Management Report & Budget Control")
+        st.caption("🧠 AI for U Controller — © 2025 Management Report & Budget Control")
 
-    # === THEME SWITCH ===
-    if st.session_state.theme_mode == "dark":
-        st.markdown(DARK_CSS, unsafe_allow_html=True)
-    else:
-        st.markdown(LIGHT_CSS, unsafe_allow_html=True)
+    st.markdown(DARK_CSS if st.session_state.theme_mode == "dark" else LIGHT_CSS, unsafe_allow_html=True)
 
-    # === HEADER ===
     st.markdown("""
     <div style="display:flex;align-items:center;gap:13px;">
         <span style="font-size:2.5em;">🧠</span>
@@ -96,9 +92,8 @@ def main():
     </div>
     """, unsafe_allow_html=True)
 
-    # === FILE UPLOAD ===
     uploaded_files = st.file_uploader(
-        "Upload PDF, Excel, atau Word (PDF, XLSX, DOCX, max 200MB per file)",
+        "Upload PDF, Excel, atau Word (PDF, XLSX, DOCX, max 200MB)",
         type=['pdf', 'xlsx', 'xls', 'docx'],
         label_visibility="collapsed",
         accept_multiple_files=True
@@ -117,13 +112,26 @@ def main():
             name = uploaded_file.name
             ext = name.split(".")[-1].lower()
             text_chunks = []
+
             try:
                 if ext == "pdf":
                     with pdfplumber.open(uploaded_file) as pdf:
                         for page in pdf.pages:
                             text = page.extract_text()
-                            if text:
+                            if text and len(text.strip()) > 20:
                                 text_chunks.append(text)
+                            else:
+                                try:
+                                    pil_image = page.to_image(resolution=300).original
+                                    img_bytes = io.BytesIO()
+                                    pil_image.save(img_bytes, format="PNG")
+                                    img_bytes.seek(0)
+                                    result = reader.readtext(img_bytes, detail=0, paragraph=True)
+                                    ocr_text = "\n".join(result)
+                                    if len(ocr_text.strip()) > 10:
+                                        text_chunks.append(ocr_text)
+                                except Exception as ocr_error:
+                                    st.warning(f"OCR gagal di halaman PDF: {ocr_error}")
                 elif ext in ["xlsx", "xls"]:
                     excel = pd.ExcelFile(uploaded_file)
                     for sheet in excel.sheet_names:
@@ -141,15 +149,12 @@ def main():
         st.session_state.file_names = file_names
         st.success("File berhasil dibaca: " + ", ".join(file_names))
 
-    # === HISTORY CHAT ===
     for q, a, _, utype in st.session_state.current_chat:
         st.chat_message("user" if utype == "user" else "assistant", avatar="👤" if utype == "user" else "🤖") \
             .markdown(q if utype == 'user' else a, unsafe_allow_html=True)
 
-    # === INPUT ===
     user_input = st.chat_input("Tanyakan sesuatu…")
 
-    # === PROSES QA ===
     if user_input:
         st.chat_message("user", avatar="👤").markdown(user_input, unsafe_allow_html=True)
         question = user_input
@@ -166,7 +171,6 @@ def main():
                 except Exception:
                     continue
 
-            # Fallback regex
             if best["score"] < 0.3:
                 for fname, context in chunks:
                     if question.lower() in context.lower():
@@ -190,7 +194,7 @@ def main():
         st.session_state.current_chat.append((question, "", "", "user"))
         st.session_state.current_chat.append(("", answer, "", "assistant"))
 
-# === ERROR HANDLER GLOBAL ===
+# === Jalankan dengan error handler ===
 try:
     main()
 except Exception as e:
