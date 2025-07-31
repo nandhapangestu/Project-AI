@@ -25,8 +25,13 @@ beautifulsoup4
 httpx
 lxml
 
-# === Utility & Retry
+# === Utility & Retry ===
 loguru
 toolz
 tenacity
 aiohttp
+
+# === OCR Support ===
+easyocr
+pillow
+pdf2image
