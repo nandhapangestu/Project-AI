@@ -17,7 +17,11 @@ xlrd
 csvkit
 pdf2image
 pillow
-pdfplumber  # <== Tambahan penting untuk parsing tabel teks
+pdfplumber
+
+# === OCR Support ===
+easyocr
+Pillow
 
 # === Machine Learning for PDF QA ===
 scikit-learn
