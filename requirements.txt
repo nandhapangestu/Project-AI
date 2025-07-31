@@ -22,9 +22,8 @@ numpy
 
 # === HuggingFace Transformers for Open-Source LLM ===
 transformers==4.40.1
-accelerate
+accelerate==0.27.2
 torch==2.0.1+cpu -f https://download.pytorch.org/whl/torch_stable.html
-# sentencepiece  # Dihapus karena tidak dibutuhkan oleh model yang digunakan
 
 # === Google Drive Integration ===
 google-api-python-client
