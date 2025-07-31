@@ -7,9 +7,10 @@ import re
 import traceback
 import easyocr
 import io
+import difflib
 from transformers import pipeline
 
-# === Load QA Model ===
+# === Load Model QA ===
 @st.cache_resource
 def load_model():
     try:
@@ -21,7 +22,23 @@ def load_model():
 qa_model = load_model()
 reader = easyocr.Reader(['en'], gpu=False)
 
-# === Page Setup ===
+# === Static FAQ + Citation ===
+FAQ_STATIC = {
+    "apa itu pis": "PIS (Pertamina International Shipping) adalah subholding dari PT Pertamina (Persero) yang bergerak di bidang integrated marine logistics. [Sumber: PIS Annual Report 2024, hlm. 6]",
+    "siapa pemilik pis": "PIS dimiliki oleh PT Pertamina (Persero) sebagai bagian dari restrukturisasi subholding. [Sumber: PIS Annual Report 2024, hlm. 6]",
+    "apa visi pis": "Visi PIS adalah menjadi Asia's Leading Integrated Marine Logistics Company. [Sumber: PIS Annual Report 2024, hlm. 15]",
+    "apa misi pis": "Misi PIS adalah menyediakan solusi logistik energi terintegrasi yang aman, andal, dan ramah lingkungan. [Sumber: PIS Annual Report 2024, hlm. 15]",
+    "berapa pendapatan pis tahun 2023": "Pendapatan PIS tahun 2023 mencapai USD 4,02 miliar. [Sumber: PIS Annual Report 2024, hlm. 11]",
+    "berapa laba pis tahun 2023": "Laba bersih PIS tahun 2023 adalah USD 305,3 juta. [Sumber: PIS Annual Report 2024, hlm. 11]",
+    "berapa ebitda pis tahun 2023": "EBITDA PIS tahun 2023 sebesar USD 739,4 juta. [Sumber: PIS Annual Report 2024, hlm. 11]",
+    "berapa jumlah kapal pis": "PIS mengoperasikan 97 kapal, termasuk VLCC, tanker gas, dan lainnya. [Sumber: PIS Annual Report 2024, hlm. 12]",
+    "apa saja lini bisnis pis": "Lini bisnis utama PIS adalah shipping, marine services, dan integrated logistics. [Sumber: PIS Annual Report 2024, hlm. 14]",
+    "apa komitmen pis terhadap lingkungan": "PIS menjalankan green shipping, dekarbonisasi armada, dan sertifikasi ISO 14001 & ISPS Code. [Sumber: PIS Annual Report 2024, hlm. 20]",
+    "apakah pis ekspansi global": "Ya, PIS membentuk anak usaha di Singapura & Dubai, bermitra dengan CPC Taiwan dan ADNOC. [Sumber: PIS Annual Report 2024, hlm. 12]",
+    "apa proyek digital pis": "PIS mengimplementasikan SmartShip, Fleet Management System, dan Port Operation Monitoring. [Sumber: PIS Annual Report 2024, hlm. 23]",
+}
+
+# === Page Settings ===
 st.set_page_config(page_title="AI for U Controller", layout="wide", initial_sidebar_state="expanded")
 
 # === Theme CSS ===
@@ -153,48 +170,64 @@ def main():
         st.chat_message("user" if utype == "user" else "assistant", avatar="👤" if utype == "user" else "🤖") \
             .markdown(q if utype == 'user' else a, unsafe_allow_html=True)
 
-    user_input = st.chat_input("Tanyakan sesuatu…")
+    st.markdown("#### 💬 Pertanyaan Umum tentang PIS")
+    saran_pertanyaan = list(FAQ_STATIC.keys())[:6]
+    cols = st.columns(3)
+    for i, q in enumerate(saran_pertanyaan):
+        if cols[i % 3].button(q.capitalize() + " ❓", key=f"faqbtn_{i}"):
+            user_input = q
+            st.session_state.faq_clicked = True
+            break
+    else:
+        user_input = st.chat_input("Tanyakan sesuatu…")
 
     if user_input:
         st.chat_message("user", avatar="👤").markdown(user_input, unsafe_allow_html=True)
-        question = user_input
-        answer = None
-        chunks = st.session_state.all_text_chunks
+        lower_q = user_input.lower()
 
-        if chunks:
-            best = {"answer": "", "score": 0.0, "file": ""}
-            for fname, context in chunks:
-                try:
-                    result = qa_model(question=question, context=context)
-                    if result["score"] > best["score"]:
-                        best.update({"answer": result["answer"], "score": result["score"], "file": fname})
-                except Exception:
-                    continue
-
-            if best["score"] < 0.3:
-                for fname, context in chunks:
-                    if question.lower() in context.lower():
-                        numbers = re.findall(r"[\d\.\,]+", context)
-                        if numbers:
-                            best = {
-                                "answer": f"Angka ditemukan: {', '.join(numbers[:3])}",
-                                "score": 0.5,
-                                "file": fname
-                            }
-                            break
-
-            if best["score"] > 0.3:
-                answer = f"**Jawaban (dari file: {best['file']})**\n\n{best['answer']}"
-            else:
-                answer = "Maaf, saya tidak menemukan jawaban yang relevan di dokumen."
+        # === Fuzzy Match FAQ
+        match = difflib.get_close_matches(lower_q, FAQ_STATIC.keys(), n=1, cutoff=0.6)
+        if match:
+            answer = FAQ_STATIC[match[0]]
+            st.chat_message("assistant", avatar="🤖").markdown(answer, unsafe_allow_html=True)
+            st.session_state.current_chat.append((user_input, "", "", "user"))
+            st.session_state.current_chat.append(("", answer, "", "assistant"))
         else:
-            answer = "Silakan upload file terlebih dahulu sebelum bertanya."
+            # === QA berbasis dokumen
+            chunks = st.session_state.all_text_chunks
+            if chunks:
+                best = {"answer": "", "score": 0.0, "file": ""}
+                for fname, context in chunks:
+                    try:
+                        result = qa_model(question=lower_q, context=context)
+                        if result["score"] > best["score"]:
+                            best.update({"answer": result["answer"], "score": result["score"], "file": fname})
+                    except Exception:
+                        continue
 
-        st.chat_message("assistant", avatar="🤖").markdown(answer, unsafe_allow_html=True)
-        st.session_state.current_chat.append((question, "", "", "user"))
-        st.session_state.current_chat.append(("", answer, "", "assistant"))
+                if best["score"] < 0.3:
+                    for fname, context in chunks:
+                        if lower_q in context.lower():
+                            numbers = re.findall(r"[\d\.\,]+", context)
+                            if numbers:
+                                best = {
+                                    "answer": f"Angka ditemukan: {', '.join(numbers[:3])}",
+                                    "score": 0.5,
+                                    "file": fname
+                                }
+                                break
 
-# === Jalankan dengan error handler ===
+                if best["score"] > 0.3:
+                    answer = f"**Jawaban (dari file: {best['file']})**\n\n{best['answer']}"
+                else:
+                    answer = "Maaf, saya tidak menemukan jawaban yang relevan di dokumen."
+            else:
+                answer = "Silakan upload file terlebih dahulu sebelum bertanya."
+
+            st.chat_message("assistant", avatar="🤖").markdown(answer, unsafe_allow_html=True)
+            st.session_state.current_chat.append((user_input, "", "", "user"))
+            st.session_state.current_chat.append(("", answer, "", "assistant"))
+
 try:
     main()
 except Exception as e:
