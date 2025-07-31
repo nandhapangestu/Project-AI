@@ -1,54 +1,32 @@
-# === Core App & UI ===
+# === Core App ===
 streamlit>=1.32
 
-# === OpenAI + LLM ===
-openai
-tiktoken
-
-# === PDF & File Parsing ===
-PyPDF2
-PyMuPDF
-pypdf
-pdfminer.six
+# === PDF, Word, Excel Parsing ===
+pdfplumber
 python-docx
 openpyxl
 pandas
-xlrd
-csvkit
-pdf2image
-pillow
-pdfplumber  # <== Tambahan penting untuk parsing tabel teks
 
-# === Machine Learning for PDF QA ===
-scikit-learn
-numpy
-
-# === HuggingFace Transformers for Open-Source LLM ===
+# === LLM QA with HuggingFace ===
 transformers==4.36.2
 accelerate
 torch
+scikit-learn
+numpy
 
-# === Google Drive Integration ===
+# === Google Drive API ===
 google-api-python-client
 google-auth
 google-auth-oauthlib
 
-# === Web Search + Scraping ===
+# === Web Scraping / Search (opsional) ===
 duckduckgo-search
-requests
 beautifulsoup4
-lxml
 httpx
-urllib3
+lxml
 
-# === Logging, Retry, Utility ===
+# === Utility & Retry
 loguru
 toolz
 tenacity
 aiohttp
-
-# === Developer Tools ===
-ipython
-jupyter
-black
-pre-commit
