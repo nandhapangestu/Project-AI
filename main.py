@@ -2,15 +2,20 @@ import streamlit as st
 from PyPDF2 import PdfReader
 import pandas as pd
 import docx
-import pdfplumber
 from transformers import pipeline
+import io
 
-# === QA MODEL ===
+# === CACHING MODELS ===
 @st.cache_resource
 def load_qa_model():
     return pipeline("question-answering", model="deepset/roberta-base-squad2")
 
+@st.cache_resource
+def load_summarizer():
+    return pipeline("summarization", model="facebook/bart-large-cnn")
+
 qa_model = load_qa_model()
+summarizer = load_summarizer()
 
 # === PAGE CONFIG ===
 st.set_page_config(page_title="AI for U Controller", layout="wide", initial_sidebar_state="expanded")
@@ -19,96 +24,98 @@ st.set_page_config(page_title="AI for U Controller", layout="wide", initial_side
 with st.sidebar:
     st.image("static/Logo_Pertamina_PIS.png", width=130)
     st.header("Obrolan")
-
-    if "theme_mode" not in st.session_state:
-        st.session_state.theme_mode = "light"
-    if st.button("Switch Theme"):
-        st.session_state.theme_mode = "dark" if st.session_state.theme_mode == "light" else "light"
-
     if "chat_sessions" not in st.session_state:
         st.session_state.chat_sessions = []
     if "current_chat" not in st.session_state:
         st.session_state.current_chat = []
-
-    if st.button("➕ New Chat"):
+    if st.button("➕ New Chat", use_container_width=True):
         if st.session_state.current_chat:
             st.session_state.chat_sessions.append(st.session_state.current_chat)
         st.session_state.current_chat = []
 
-    st.caption("🧠 **AI for U Controller**\n\nCopyright 2025 by Management Report & Budget Control")
-
 # === MAIN HEADER ===
-st.markdown("## 🧠 AI for U Controller")
-st.markdown("### Upload PDF, Word, Excel")
+st.markdown("<h1>🧠 AI for U Controller</h1>", unsafe_allow_html=True)
+st.subheader("Upload PDF, Word, Excel")
 
 # === FILE UPLOADER ===
-uploaded_files = st.file_uploader(
-    "Drag and drop files here", type=["pdf", "docx", "doc", "xlsx", "xls"], accept_multiple_files=True
-)
+uploaded_files = st.file_uploader("Drag and drop files here", type=["pdf", "docx", "doc", "xlsx", "xls"], accept_multiple_files=True)
 
+# === INIT STATE ===
 if "all_text_chunks" not in st.session_state:
     st.session_state.all_text_chunks = []
 if "file_names" not in st.session_state:
     st.session_state.file_names = []
+if "summary_doc" not in st.session_state:
+    st.session_state.summary_doc = ""
 
+# === PARSE FILES ===
 if uploaded_files:
     all_chunks = []
+    summary_source = []
     file_names = []
-    for file in uploaded_files:
-        name = file.name
+    for uploaded_file in uploaded_files:
+        name = uploaded_file.name
         ext = name.split(".")[-1].lower()
-        texts = []
+        text_chunks = []
         try:
             if ext == "pdf":
-                with pdfplumber.open(file) as pdf:
-                    for page in pdf.pages:
-                        texts.append(page.extract_text() or "")
-            elif ext in ["docx", "doc"]:
-                d = docx.Document(file)
-                texts = [para.text for para in d.paragraphs if para.text.strip()]
+                reader = PdfReader(uploaded_file)
+                text_chunks = [p.extract_text() or "" for p in reader.pages]
             elif ext in ["xlsx", "xls"]:
-                xls = pd.ExcelFile(file)
-                for sheet in xls.sheet_names:
-                    df = xls.parse(sheet)
-                    texts += [str(row) for row in df.astype(str).values.tolist()]
-            elif ext == "csv":
-                df = pd.read_csv(file)
-                texts += [str(row) for row in df.astype(str).values.tolist()]
-            all_chunks.extend([(name, t) for t in texts if t and len(t.strip()) > 10])
+                excel = pd.ExcelFile(uploaded_file)
+                for sheet in excel.sheet_names:
+                    df = excel.parse(sheet)
+                    text_chunks += [str(row) for row in df.astype(str).values.tolist()]
+            elif ext in ["docx", "doc"]:
+                doc = docx.Document(uploaded_file)
+                text_chunks = [para.text for para in doc.paragraphs if para.text.strip()]
             file_names.append(name)
+            all_chunks.extend([(name, chunk) for chunk in text_chunks if len(chunk.strip()) > 10])
+            summary_source.extend(text_chunks)
         except Exception as e:
             st.warning(f"Gagal membaca {name}: {e}")
     st.session_state.all_text_chunks = all_chunks
     st.session_state.file_names = file_names
+    if summary_source:
+        try:
+            full_text = "\n".join(summary_source)[:4000]
+            result = summarizer(full_text, max_length=180, min_length=30, do_sample=False)
+            st.session_state.summary_doc = result[0]["summary_text"]
+            st.success("✅ Rangkuman berhasil dibuat")
+        except Exception as e:
+            st.warning("⚠️ Gagal membuat ringkasan otomatis.")
     st.success("File berhasil dibaca: " + ", ".join(file_names))
 
 # === TAMPILKAN CHAT HISTORY ===
-for entry in st.session_state.current_chat:
-    role, message = entry
-    st.chat_message(role).markdown(message)
+for q, a in st.session_state.current_chat:
+    st.chat_message("user").markdown(q)
+    st.chat_message("assistant").markdown(a)
 
-# === INPUT ===
+# === INPUT BOX ===
 user_input = st.chat_input("Tanyakan sesuatu…")
 
+# === JAWABAN ===
 if user_input:
     st.chat_message("user").markdown(user_input)
+    answer = None
     chunks = st.session_state.all_text_chunks
-    best = {"answer": "", "score": 0.0, "file": ""}
+    best = {"score": 0.0, "answer": "", "file": ""}
     if chunks:
         for fname, context in chunks:
             try:
-                res = qa_model(question=user_input, context=context)
-                if res["score"] > best["score"]:
-                    best = {"answer": res["answer"], "score": res["score"], "file": fname}
+                result = qa_model(question=user_input, context=context)
+                if result["score"] > best["score"]:
+                    best = {"score": result["score"], "answer": result["answer"], "file": fname}
             except:
                 continue
         if best["score"] > 0.3:
-            response = f"**Jawaban (dari file: {best['file']})**\n\n{best['answer']}"
+            answer = f"**Jawaban dari file `{best['file']}`:**\n\n{best['answer']}"
+        elif st.session_state.summary_doc:
+            answer = f"🔎 Tidak ditemukan jawaban spesifik.\n\nBerikut ringkasan dokumen:\n\n{st.session_state.summary_doc}"
         else:
-            response = "Maaf, saya tidak menemukan jawaban yang relevan di dokumen."
+            answer = "Maaf, saya tidak menemukan jawaban yang relevan di dokumen."
     else:
-        response = "Silakan upload file terlebih dahulu."
+        answer = "Silakan upload file terlebih dahulu."
 
-    st.chat_message("assistant").markdown(response)
-    st.session_state.current_chat.append(("user", user_input))
-    st.session_state.current_chat.append(("assistant", response))
+    st.chat_message("assistant").markdown(answer)
+    st.session_state.current_chat.append((user_input, answer))
