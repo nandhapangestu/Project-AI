@@ -36,10 +36,12 @@ LIGHT_CSS = """
 
 # === SIDEBAR ===
 with st.sidebar:
-    st.image("Logo_Pertamina_PIS.png", width=130)
+    st.image("static/Logo_Pertamina_PIS.png", width=130)
     st.header("Obrolan")
+
     if "theme_mode" not in st.session_state:
-        st.session_state.theme_mode = "light"  # Light jadi default
+        st.session_state.theme_mode = "light"  # Light mode default
+
     theme_icon = "☀️ Light" if st.session_state.theme_mode == "dark" else "🌙 Dark"
     if st.button(f"Switch to {theme_icon}", key="themebtn", use_container_width=True):
         st.session_state.theme_mode = "light" if st.session_state.theme_mode == "dark" else "dark"
