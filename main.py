@@ -1,11 +1,14 @@
+
 import streamlit as st
 from PyPDF2 import PdfReader
 import pandas as pd
 import docx
 from transformers import pipeline
-import io
+import fitz  # PyMuPDF
 import easyocr
 from PIL import Image
+import numpy as np
+import io
 
 # === CACHING MODELS ===
 @st.cache_resource
@@ -18,7 +21,7 @@ def load_summarizer():
 
 @st.cache_resource
 def load_ocr_reader():
-    return easyocr.Reader(['en'], gpu=False)
+    return easyocr.Reader(['en', 'id'], gpu=False)
 
 qa_model = load_qa_model()
 summarizer = load_summarizer()
@@ -66,22 +69,16 @@ if uploaded_files:
         text_chunks = []
         try:
             if ext == "pdf":
-                reader = PdfReader(uploaded_file)
-                for i, page in enumerate(reader.pages):
-                    text = page.extract_text()
-                    if text:
+                pdf_bytes = uploaded_file.read()
+                with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
+                    for page in doc:
+                        text = page.get_text()
+                        if not text.strip():
+                            pix = page.get_pixmap(dpi=200)
+                            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                            result = ocr_reader.readtext(np.array(img), detail=0)
+                            text = " ".join(result)
                         text_chunks.append(text)
-                    else:
-                        # OCR jika teks kosong
-                        pdf_bytes = uploaded_file.read()
-                        images = PdfReader(io.BytesIO(pdf_bytes)).pages
-                        try:
-                            image = images[i].to_image(resolution=300)
-                            pil_img = image.original
-                            ocr_text = ocr_reader.readtext(pil_img, detail=0, paragraph=True)
-                            text_chunks.append(" ".join(ocr_text))
-                        except Exception as e:
-                            continue
                 uploaded_file.seek(0)
             elif ext in ["xlsx", "xls"]:
                 excel = pd.ExcelFile(uploaded_file)
