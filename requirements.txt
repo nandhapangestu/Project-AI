@@ -1,6 +1,5 @@
 # === Core App & UI ===
 streamlit>=1.32
-streamlit-chat
 
 # === OpenAI + LLM ===
 openai
@@ -22,10 +21,9 @@ scikit-learn
 numpy
 
 # === HuggingFace Transformers for Open-Source LLM ===
-transformers
+transformers==4.40.1
 accelerate
 torch==2.0.1+cpu -f https://download.pytorch.org/whl/torch_stable.html
-# sentencepiece  # opsional, hapus kalau tidak dipakai
 
 # === Google Drive Integration ===
 google-api-python-client
