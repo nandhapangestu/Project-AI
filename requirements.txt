@@ -15,12 +15,9 @@ openpyxl
 pandas
 xlrd
 csvkit
-pdfplumber
-
-# === OCR Support ===
-easyocr
-pillow  # lowercase only, avoid duplicate
-PyMuPDF
+pdf2image
+pillow
+pdfplumber  # <== Tambahan penting untuk parsing tabel teks
 
 # === Machine Learning for PDF QA ===
 scikit-learn
