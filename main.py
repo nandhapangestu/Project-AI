@@ -31,8 +31,18 @@ qa_model = load_qa_model()
 st.set_page_config(page_title="AI for U Controller", layout="wide", initial_sidebar_state="expanded")
 
 # === THEME CSS ===
-DARK_CSS = """<style>.stApp{background:#23272f!important;color:#e8e9ee;}[data-testid="stSidebar"]>div:first-child{background:#17181c;}...</style>"""
-LIGHT_CSS = """<style>.stApp{background:#f7f8fa!important;color:#222;}[data-testid="stSidebar"]>div:first-child{background:#fff;}...</style>"""
+DARK_CSS = '''
+<style>
+.stApp {background: #23272f !important; color: #e8e9ee;}
+[data-testid="stSidebar"] > div:first-child {background: #17181c;}
+</style>
+'''
+LIGHT_CSS = '''
+<style>
+.stApp {background: #f7f8fa !important; color: #222;}
+[data-testid="stSidebar"] > div:first-child {background: #fff;}
+</style>
+'''
 
 # === SIDEBAR ===
 with st.sidebar:
@@ -95,11 +105,12 @@ if uploaded_files:
         text_chunks = []
         try:
             if ext == "pdf":
-                reader = PdfReader(uploaded_file)
+                file_bytes = uploaded_file.read()
+                reader = PdfReader(BytesIO(file_bytes))
                 text_chunks = [p.extract_text() or "" for p in reader.pages]
                 if not any(text_chunks):
-                    uploaded_file.seek(0)
-                    images = convert_from_bytes(uploaded_file.read())
+                    images = convert_from_bytes(file_bytes)
+                    text_chunks = []
                     for img in images:
                         buf = BytesIO()
                         img.save(buf, format="JPEG")
@@ -125,8 +136,7 @@ if uploaded_files:
 
 # === CHAT HISTORY ===
 for q, a, _, utype in st.session_state.current_chat:
-    st.chat_message("user" if utype == "user" else "assistant", avatar="👤" if utype == "user" else "🤖") \
-        .markdown(q if utype == 'user' else a, unsafe_allow_html=True)
+    st.chat_message("user" if utype == "user" else "assistant", avatar="👤" if utype == "user" else "🤖")         .markdown(q if utype == 'user' else a, unsafe_allow_html=True)
 
 # === INPUT & QA ===
 user_input = st.chat_input("Tanyakan sesuatu…")
