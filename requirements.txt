@@ -24,8 +24,8 @@ numpy
 # === HuggingFace Transformers for Open-Source LLM ===
 transformers
 accelerate
-torch  # Dibutuhkan untuk menjalankan pipeline QA
-sentencepiece  # Optional, untuk beberapa tokenizer model tertentu
+torch==2.0.1+cpu -f https://download.pytorch.org/whl/torch_stable.html
+# sentencepiece  # opsional, hapus kalau tidak dipakai
 
 # === Google Drive Integration ===
 google-api-python-client
