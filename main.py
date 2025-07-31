@@ -3,10 +3,6 @@ from PyPDF2 import PdfReader
 import pandas as pd
 import docx
 from transformers import pipeline
-import fitz  # PyMuPDF
-import easyocr
-from PIL import Image
-import numpy as np
 import io
 
 # === CACHING MODELS ===
@@ -18,13 +14,8 @@ def load_qa_model():
 def load_summarizer():
     return pipeline("summarization", model="facebook/bart-large-cnn")
 
-@st.cache_resource
-def load_ocr_reader():
-    return easyocr.Reader(['en', 'id'], gpu=False)
-
 qa_model = load_qa_model()
 summarizer = load_summarizer()
-ocr_reader = load_ocr_reader()
 
 # === PAGE CONFIG ===
 st.set_page_config(page_title="AI for U Controller", layout="wide", initial_sidebar_state="expanded")
@@ -68,17 +59,8 @@ if uploaded_files:
         text_chunks = []
         try:
             if ext == "pdf":
-                pdf_bytes = uploaded_file.read()
-                with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
-                    for page in doc:
-                        text = page.get_text()
-                        if not text.strip():
-                            pix = page.get_pixmap(dpi=200)
-                            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                            result = ocr_reader.readtext(np.array(img), detail=0)
-                            text = " ".join(result)
-                        text_chunks.append(text)
-                uploaded_file.seek(0)
+                reader = PdfReader(uploaded_file)
+                text_chunks = [p.extract_text() or "" for p in reader.pages]
             elif ext in ["xlsx", "xls"]:
                 excel = pd.ExcelFile(uploaded_file)
                 for sheet in excel.sheet_names:
@@ -127,7 +109,7 @@ if user_input:
             except:
                 continue
         if best["score"] > 0.3:
-            answer = f"**Jawaban dari file `{best['file']}`:**\n\n{best['answer']}"
+            answer = f"**Jawaban dari file {best['file']}:**\n\n{best['answer']}"
         elif st.session_state.summary_doc:
             answer = f"🔎 Tidak ditemukan jawaban spesifik.\n\nBerikut ringkasan dokumen:\n\n{st.session_state.summary_doc}"
         else:
