@@ -4,6 +4,8 @@ import pandas as pd
 import docx
 from transformers import pipeline
 import io
+import easyocr
+from PIL import Image
 
 # === CACHING MODELS ===
 @st.cache_resource
@@ -14,8 +16,13 @@ def load_qa_model():
 def load_summarizer():
     return pipeline("summarization", model="facebook/bart-large-cnn")
 
+@st.cache_resource
+def load_ocr_reader():
+    return easyocr.Reader(['en'], gpu=False)
+
 qa_model = load_qa_model()
 summarizer = load_summarizer()
+ocr_reader = load_ocr_reader()
 
 # === PAGE CONFIG ===
 st.set_page_config(page_title="AI for U Controller", layout="wide", initial_sidebar_state="expanded")
@@ -60,7 +67,22 @@ if uploaded_files:
         try:
             if ext == "pdf":
                 reader = PdfReader(uploaded_file)
-                text_chunks = [p.extract_text() or "" for p in reader.pages]
+                for i, page in enumerate(reader.pages):
+                    text = page.extract_text()
+                    if text:
+                        text_chunks.append(text)
+                    else:
+                        # OCR jika teks kosong
+                        pdf_bytes = uploaded_file.read()
+                        images = PdfReader(io.BytesIO(pdf_bytes)).pages
+                        try:
+                            image = images[i].to_image(resolution=300)
+                            pil_img = image.original
+                            ocr_text = ocr_reader.readtext(pil_img, detail=0, paragraph=True)
+                            text_chunks.append(" ".join(ocr_text))
+                        except Exception as e:
+                            continue
+                uploaded_file.seek(0)
             elif ext in ["xlsx", "xls"]:
                 excel = pd.ExcelFile(uploaded_file)
                 for sheet in excel.sheet_names:
