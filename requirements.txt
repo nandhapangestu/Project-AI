@@ -21,11 +21,11 @@ scikit-learn
 numpy
 
 # === HuggingFace Transformers for Open-Source LLM ===
-transformers==4.40.1
-accelerate==0.27.2
-torch==2.0.1
+transformers==4.36.2
+accelerate
+torch==2.0.0
 
-# === Google Drive Integration ===
+# === Google Drive Integration (versi longgar) ===
 google-api-python-client
 google-auth
 google-auth-oauthlib
