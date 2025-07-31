@@ -15,13 +15,12 @@ openpyxl
 pandas
 xlrd
 csvkit
-pdf2image
-pillow
 pdfplumber
 
 # === OCR Support ===
 easyocr
-Pillow
+pillow  # lowercase only, avoid duplicate
+PyMuPDF
 
 # === Machine Learning for PDF QA ===
 scikit-learn
