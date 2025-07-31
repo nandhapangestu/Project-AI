@@ -1,17 +1,17 @@
+
 import streamlit as st
 from PyPDF2 import PdfReader
+import pdfplumber
 import pandas as pd
 import docx
-import pdfplumber
-import re
 from transformers import pipeline
 
-# === LLM QA MODEL ===
+# === QA MODEL ===
 @st.cache_resource
-def load_model():
+def load_qa_model():
     return pipeline("question-answering", model="deepset/roberta-base-squad2")
 
-qa_model = load_model()
+qa_model = load_qa_model()
 
 # === PAGE CONFIG ===
 st.set_page_config(page_title="AI for U Controller", layout="wide", initial_sidebar_state="expanded")
@@ -46,7 +46,6 @@ with st.sidebar:
 
     if "theme_mode" not in st.session_state:
         st.session_state.theme_mode = "light"
-
     theme_icon = "☀️ Light" if st.session_state.theme_mode == "dark" else "🌙 Dark"
     if st.button(f"Switch to {theme_icon}", key="themebtn", use_container_width=True):
         st.session_state.theme_mode = "light" if st.session_state.theme_mode == "dark" else "dark"
@@ -67,25 +66,23 @@ with st.sidebar:
             st.session_state.current_chat = chat
 
     st.markdown("---")
-    st.caption("🧠 **AI for U Controller**\n\nCopyright 2025 by Management Report & Budget Control")
+    st.caption("🧠 **AI for U Controller**")
 
-# === THEME CSS ===
+# === CSS THEME ===
 if st.session_state.theme_mode == "dark":
     st.markdown(DARK_CSS, unsafe_allow_html=True)
 else:
     st.markdown(LIGHT_CSS, unsafe_allow_html=True)
 
 # === HEADER ===
-st.markdown("""
-<div style="display:flex;align-items:center;gap:13px;">
-    <span style="font-size:2.5em;">🧠</span>
-    <span style="font-size:2.0em;font-weight:bold;">AI for U Controller</span>
-</div>
-""", unsafe_allow_html=True)
+st.markdown("""<div style="display:flex;align-items:center;gap:13px;">
+<span style="font-size:2.5em;">🧠</span>
+<span style="font-size:2.0em;font-weight:bold;">AI for U Controller</span>
+</div>""", unsafe_allow_html=True)
 
-# === FILE UPLOADER ===
+# === FILE UPLOAD ===
 uploaded_files = st.file_uploader(
-    "Upload PDF, Excel, atau Word (PDF, XLSX, DOCX, DOC, max 200MB per file)",
+    "Upload PDF, Excel, atau Word (PDF, XLSX, DOCX, DOC, max 200MB per file)", 
     type=['pdf', 'xlsx', 'xls', 'docx', 'doc'],
     label_visibility="collapsed",
     accept_multiple_files=True
@@ -99,18 +96,24 @@ if "file_names" not in st.session_state:
 if uploaded_files:
     all_chunks = []
     file_names = []
-
     for uploaded_file in uploaded_files:
         name = uploaded_file.name
         ext = name.split(".")[-1].lower()
         text_chunks = []
         try:
             if ext == "pdf":
+                reader = PdfReader(uploaded_file)
+                text_chunks = [p.extract_text() or "" for p in reader.pages]
+
+                uploaded_file.seek(0)
                 with pdfplumber.open(uploaded_file) as pdf:
                     for page in pdf.pages:
-                        text = page.extract_text()
-                        if text:
-                            text_chunks.append(text)
+                        tables = page.extract_tables()
+                        for table in tables:
+                            table_text = "\n".join([
+                                f"{row[0]}: {row[1]}" for row in table if len(row) >= 2 and row[0] and row[1]
+                            ])
+                            text_chunks.append(table_text)
             elif ext in ["xlsx", "xls"]:
                 excel = pd.ExcelFile(uploaded_file)
                 for sheet in excel.sheet_names:
@@ -123,55 +126,40 @@ if uploaded_files:
             file_names.append(name)
         except Exception as e:
             st.warning(f"Gagal baca file {name}: {e}")
-
     st.session_state.all_text_chunks = all_chunks
     st.session_state.file_names = file_names
     st.success("File berhasil dibaca: " + ", ".join(file_names))
 
-# === TAMPILKAN HISTORI ===
+# === TAMPILKAN CHAT HISTORY ===
 for q, a, _, utype in st.session_state.current_chat:
     st.chat_message("user" if utype == "user" else "assistant", avatar="👤" if utype == "user" else "🤖") \
         .markdown(q if utype == 'user' else a, unsafe_allow_html=True)
 
-# === INPUT BOX ===
+# === INPUT ===
 user_input = st.chat_input("Tanyakan sesuatu…")
 
-# === PROSES QA ===
+# === QA LOGIC ===
 if user_input:
-    st.chat_message("user", avatar="👤").markdown(user_input, unsafe_allow_html=True)
     question = user_input
+    st.chat_message("user", avatar="👤").markdown(question, unsafe_allow_html=True)
     answer = None
-    chunks = st.session_state.all_text_chunks
+    chunks = st.session_state.all_text_chunks if "all_text_chunks" in st.session_state else []
 
     if chunks:
-        best = {"answer": "", "score": 0.0, "file": ""}
+        best_answer = {"answer": "", "score": 0.0, "file": ""}
         for fname, context in chunks:
             try:
                 result = qa_model(question=question, context=context)
-                if result["score"] > best["score"]:
-                    best.update({"answer": result["answer"], "score": result["score"], "file": fname})
-            except Exception:
+                if result["score"] > best_answer["score"]:
+                    best_answer.update({"answer": result["answer"], "score": result["score"], "file": fname})
+            except Exception as e:
                 continue
-
-        # Fallback: Regex pencarian angka
-        if best["score"] < 0.3:
-            for fname, context in chunks:
-                if question.lower() in context.lower():
-                    numbers = re.findall(r"[\d\.\,]+", context)
-                    if numbers:
-                        best = {
-                            "answer": f"Angka ditemukan: {', '.join(numbers[:3])}",
-                            "score": 0.5,
-                            "file": fname
-                        }
-                        break
-
-        if best["score"] > 0.3:
-            answer = f"**Jawaban (dari file: {best['file']})**\n\n{best['answer']}"
+        if best_answer["score"] > 0.3:
+            answer = f"**Jawaban (dari file: {best_answer['file']})**\n\n{best_answer['answer']}"
         else:
             answer = "Maaf, saya tidak menemukan jawaban yang relevan di dokumen."
     else:
-        answer = "Silakan upload file terlebih dahulu sebelum bertanya."
+        answer = "Silakan upload file PDF, Excel, atau Word terlebih dahulu sebelum bertanya."
 
     st.chat_message("assistant", avatar="🤖").markdown(answer, unsafe_allow_html=True)
     st.session_state.current_chat.append((question, "", "", "user"))
