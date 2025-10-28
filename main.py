@@ -1,7 +1,3 @@
-
-# (Isi seluruh main.py dari bagian sebelumnya digabung menjadi satu)
-# Karena terlalu panjang untuk satu cell, akan digabung dan disimpan sebagai file
-
 import streamlit as st
 import os
 import pandas as pd
