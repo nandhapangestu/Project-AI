@@ -30,14 +30,68 @@ FAQ_STATIC = {
     "siapa pemilik pis": "PIS dimiliki oleh PT Pertamina (Persero). [Sumber: hlm. 6]",
     "apa visi pis": "Visi: Menjadi Asia's Leading Integrated Marine Logistics Company. [Sumber: hlm. 15]",
     "apa misi pis": "Misi: Solusi logistik energi yang aman dan berkelanjutan. [Sumber: hlm. 15]",
-    "berapa pendapatan pis tahun 2023": "USD 4,02 miliar. [Sumber: hlm. 11]",
-    "berapa laba pis tahun 2023": "USD 305,3 juta. [Sumber: hlm. 11]",
+    "berapa pendapatan pis tahun 2024": "USD 3,48 miliar. [Sumber: hlm. 11]",
+    "berapa pendapatan pis tahun 2023": "USD 3,43 miliar. [Sumber: hlm. 11]",
+    "berapa laba pis tahun 2024": "USD 558,6 juta (laba tahun berjalan / NPAT). [Sumber: hlm. 11]",
+    "berapa laba pis tahun 2023": "USD 329,9 juta (laba tahun berjalan / NPAT). [Sumber: hlm. 11]",
+    "berapa laba pis tahun 2022": "USD 205,0 juta (laba tahun berjalan / NPAT). [Sumber: hlm. 11]",
+    "berapa laba pis tahun 2021": "USD 126,2 juta (laba tahun berjalan / NPAT). [Sumber: hlm. 11]",
+    "berapa laba pis tahun 2020": "USD 108,3 juta (laba tahun berjalan / NPAT). [Sumber: hlm. 11]",
+    "berapa ebitda pis tahun 2024": "USD 875,7 juta. [Sumber: hlm. 11]",
     "berapa ebitda pis tahun 2023": "USD 739,4 juta. [Sumber: hlm. 11]",
+    "berapa laba kotor pis tahun 2024": "USD 923,2 juta. [Sumber: hlm. 11]",
+    "berapa total aset pis tahun 2024": "USD 8,23 miliar. [Sumber: hlm. 11]",
+    "berapa total liabilitas pis tahun 2024": "USD 4,18 miliar. [Sumber: hlm. 11]",
+    "berapa total ekuitas pis tahun 2024": "USD 4,05 miliar. [Sumber: hlm. 11]",
     "berapa jumlah kapal pis": "97 kapal (VLCC, tanker gas, dll). [Sumber: hlm. 12]",
     "apa saja lini bisnis pis": "Shipping, marine services, integrated logistics. [Sumber: hlm. 14]",
     "apa komitmen pis terhadap lingkungan": "Dekarbonisasi, green shipping, ISO 14001. [Sumber: hlm. 20]",
     "apakah pis ekspansi global": "Ya, ekspansi ke Singapura & Dubai. [Sumber: hlm. 12]",
-    "apa proyek digital pis": "SmartShip, Fleet Management, Port Monitoring. [Sumber: hlm. 23]",
+    "apa proyek digital pis": "SmartShip, Fleet Management, Port Monitoring. [Sumber: hlm. 23]"
+}
+Apakah kamu ingin saya tambahkan juga persentase kenaikan laba tahun berjalan 2024 dibanding 2023 (YoY +69%) supaya sistem FAQ bisa menjawab pertanyaan seperti “berapa pertumbuhan laba PIS tahun 2024?”?
+
+
+
+
+
+
+
+You said:
+Sumber di halaman 16
+
+
+
+ChatGPT said:
+Sip 👍 berarti semua referensi finansial dari tabel “Laba Rugi Komprehensif Konsolidasian” kita perbaiki dengan sumber halaman 16.
+
+Berikut versi final FAQ_STATIC yang sudah disesuaikan sepenuhnya:
+
+python
+Copy code
+FAQ_STATIC = {
+    "apa itu pis": "PIS (Pertamina International Shipping) adalah subholding dari PT Pertamina (Persero) yang bergerak di bidang integrated marine logistics. [Sumber: PIS Annual Report 2024, hlm. 6]",
+    "siapa pemilik pis": "PIS dimiliki oleh PT Pertamina (Persero). [Sumber: hlm. 6]",
+    "apa visi pis": "Visi: Menjadi Asia's Leading Integrated Marine Logistics Company. [Sumber: hlm. 15]",
+    "apa misi pis": "Misi: Solusi logistik energi yang aman dan berkelanjutan. [Sumber: hlm. 15]",
+    "berapa pendapatan pis tahun 2024": "USD 3,48 miliar. [Sumber: hlm. 16]",
+    "berapa pendapatan pis tahun 2023": "USD 3,43 miliar. [Sumber: hlm. 16]",
+    "berapa laba pis tahun 2024": "USD 558,6 juta (laba tahun berjalan / NPAT). [Sumber: hlm. 16]",
+    "berapa laba pis tahun 2023": "USD 329,9 juta (laba tahun berjalan / NPAT). [Sumber: hlm. 16]",
+    "berapa laba pis tahun 2022": "USD 205,0 juta (laba tahun berjalan / NPAT). [Sumber: hlm. 16]",
+    "berapa laba pis tahun 2021": "USD 126,2 juta (laba tahun berjalan / NPAT). [Sumber: hlm. 16]",
+    "berapa laba pis tahun 2020": "USD 108,3 juta (laba tahun berjalan / NPAT). [Sumber: hlm. 16]",
+    "berapa ebitda pis tahun 2024": "USD 875,7 juta. [Sumber: hlm. 16]",
+    "berapa ebitda pis tahun 2023": "USD 739,4 juta. [Sumber: hlm. 16]",
+    "berapa laba kotor pis tahun 2024": "USD 923,2 juta. [Sumber: hlm. 16]",
+    "berapa total aset pis tahun 2024": "USD 8,23 miliar. [Sumber: hlm. 16]",
+    "berapa total liabilitas pis tahun 2024": "USD 4,18 miliar. [Sumber: hlm. 16]",
+    "berapa total ekuitas pis tahun 2024": "USD 4,05 miliar. [Sumber: hlm. 16]",
+    "berapa jumlah kapal pis": "97 kapal (VLCC, tanker gas, dll). [Sumber: hlm. 12]",
+    "apa saja lini bisnis pis": "Shipping, marine services, integrated logistics. [Sumber: hlm. 14]",
+    "apa komitmen pis terhadap lingkungan": "Dekarbonisasi, green shipping, ISO 14001. [Sumber: hlm. 20]",
+    "apakah pis ekspansi global": "Ya, ekspansi ke Singapura & Dubai. [Sumber: hlm. 12]",
+    "apa proyek digital pis": "SmartShip, Fleet Management, Port Monitoring. [Sumber: hlm. 23]"
 }
 
 st.set_page_config(page_title="AI for U Controller", layout="wide")
