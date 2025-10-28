@@ -49,23 +49,6 @@ FAQ_STATIC = {
     "apakah pis ekspansi global": "Ya, ekspansi ke Singapura & Dubai. [Sumber: hlm. 12]",
     "apa proyek digital pis": "SmartShip, Fleet Management, Port Monitoring. [Sumber: hlm. 23]"
 }
-Apakah kamu ingin saya tambahkan juga persentase kenaikan laba tahun berjalan 2024 dibanding 2023 (YoY +69%) supaya sistem FAQ bisa menjawab pertanyaan seperti “berapa pertumbuhan laba PIS tahun 2024?”?
-
-
-
-
-
-
-
-You said:
-Sumber di halaman 16
-
-
-
-ChatGPT said:
-Sip 👍 berarti semua referensi finansial dari tabel “Laba Rugi Komprehensif Konsolidasian” kita perbaiki dengan sumber halaman 16.
-
-Berikut versi final FAQ_STATIC yang sudah disesuaikan sepenuhnya:
 
 python
 Copy code
