@@ -46,33 +46,6 @@ FAQ_STATIC = {
     "apa proyek digital pis": "SmartShip, Fleet Management, Port Monitoring. [Sumber: hlm. 23]"
 }
 
-python
-Copy code
-FAQ_STATIC = {
-    "apa itu pis": "PIS (Pertamina International Shipping) adalah subholding dari PT Pertamina (Persero) yang bergerak di bidang integrated marine logistics. [Sumber: PIS Annual Report 2024, hlm. 6]",
-    "siapa pemilik pis": "PIS dimiliki oleh PT Pertamina (Persero). [Sumber: hlm. 6]",
-    "apa visi pis": "Visi: Menjadi Asia's Leading Integrated Marine Logistics Company. [Sumber: hlm. 15]",
-    "apa misi pis": "Misi: Solusi logistik energi yang aman dan berkelanjutan. [Sumber: hlm. 15]",
-    "berapa pendapatan pis tahun 2024": "USD 3,48 miliar. [Sumber: hlm. 16]",
-    "berapa pendapatan pis tahun 2023": "USD 3,43 miliar. [Sumber: hlm. 16]",
-    "berapa laba pis tahun 2024": "USD 558,6 juta (laba tahun berjalan / NPAT). [Sumber: hlm. 16]",
-    "berapa laba pis tahun 2023": "USD 329,9 juta (laba tahun berjalan / NPAT). [Sumber: hlm. 16]",
-    "berapa laba pis tahun 2022": "USD 205,0 juta (laba tahun berjalan / NPAT). [Sumber: hlm. 16]",
-    "berapa laba pis tahun 2021": "USD 126,2 juta (laba tahun berjalan / NPAT). [Sumber: hlm. 16]",
-    "berapa laba pis tahun 2020": "USD 108,3 juta (laba tahun berjalan / NPAT). [Sumber: hlm. 16]",
-    "berapa ebitda pis tahun 2024": "USD 875,7 juta. [Sumber: hlm. 16]",
-    "berapa ebitda pis tahun 2023": "USD 739,4 juta. [Sumber: hlm. 16]",
-    "berapa laba kotor pis tahun 2024": "USD 923,2 juta. [Sumber: hlm. 16]",
-    "berapa total aset pis tahun 2024": "USD 8,23 miliar. [Sumber: hlm. 16]",
-    "berapa total liabilitas pis tahun 2024": "USD 4,18 miliar. [Sumber: hlm. 16]",
-    "berapa total ekuitas pis tahun 2024": "USD 4,05 miliar. [Sumber: hlm. 16]",
-    "berapa jumlah kapal pis": "97 kapal (VLCC, tanker gas, dll). [Sumber: hlm. 12]",
-    "apa saja lini bisnis pis": "Shipping, marine services, integrated logistics. [Sumber: hlm. 14]",
-    "apa komitmen pis terhadap lingkungan": "Dekarbonisasi, green shipping, ISO 14001. [Sumber: hlm. 20]",
-    "apakah pis ekspansi global": "Ya, ekspansi ke Singapura & Dubai. [Sumber: hlm. 12]",
-    "apa proyek digital pis": "SmartShip, Fleet Management, Port Monitoring. [Sumber: hlm. 23]"
-}
-
 st.set_page_config(page_title="AI for U Controller", layout="wide")
 
 DARK_CSS = """<style>
@@ -116,7 +89,12 @@ def main():
 
     st.markdown(DARK_CSS if st.session_state.theme_mode == "dark" else LIGHT_CSS, unsafe_allow_html=True)
 
-    uploaded_files = st.file_uploader("Upload PDF, Excel, atau Word", type=["pdf", "xlsx", "xls", "docx"], label_visibility="collapsed", accept_multiple_files=True)
+    uploaded_files = st.file_uploader(
+        "Upload PDF, Excel, atau Word",
+        type=["pdf", "xlsx", "xls", "docx"],
+        label_visibility="collapsed",
+        accept_multiple_files=True
+    )
 
     if "all_text_chunks" not in st.session_state:
         st.session_state.all_text_chunks = []
@@ -140,7 +118,8 @@ def main():
                                     img.save(buf, format="PNG")
                                     result = reader.readtext(buf.getvalue(), detail=0, paragraph=True)
                                     text_chunks.append("\n".join(result))
-                                except: pass
+                                except:
+                                    pass
                 elif ext in ["xlsx", "xls"]:
                     excel = pd.ExcelFile(uploaded_file)
                     for sheet in excel.sheet_names:
@@ -155,7 +134,10 @@ def main():
         st.session_state.all_text_chunks = all_chunks
 
     for q, a, _, utype in st.session_state.current_chat:
-        st.chat_message("user" if utype == "user" else "assistant").markdown(q if utype=="user" else a, unsafe_allow_html=True)
+        st.chat_message("user" if utype == "user" else "assistant").markdown(
+            q if utype == "user" else a,
+            unsafe_allow_html=True
+        )
 
     st.markdown("#### 💬 Pertanyaan Umum tentang PIS")
     cols = st.columns(3)
@@ -181,7 +163,8 @@ def main():
                     result = qa_model(question=q_lower, context=context)
                     if result["score"] > best["score"]:
                         best = {"answer": result["answer"], "score": result["score"], "file": fname}
-                except: continue
+                except:
+                    continue
             if best["score"] > 0.3:
                 answer = f"**Jawaban (dari file: {best['file']})**\n\n{best['answer']}"
             else:
